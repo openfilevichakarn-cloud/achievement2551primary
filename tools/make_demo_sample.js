@@ -106,6 +106,7 @@ function build(g) {
     for (let j = 0; j < 4; j++) { set('น้ำหนัก-ส่วนสูง', rc(row, 3 + 2 * j), Math.round((w0 + j * 0.6) * 10) / 10); set('น้ำหนัก-ส่วนสูง', rc(row, 4 + 2 * j), Math.round((h0 + j * 0.8) * 10) / 10); }
   });
 
+  const schoolDays = [];   // วันเรียนตามปฏิทิน (ใช้สร้างเวลาเรียนรายวิชา)
   // ปฏิทินวันเรียน (จันทร์-ศุกร์ในช่วงภาคเรียน ยกเว้นวันหยุดตัวอย่าง) — ตรรกะเดียวกับปุ่ม "สร้างปฏิทินวันเรียน" ในหน้า ข้อมูล > ปฏิทิน
   {
     const CAL = 'ปฏิทิน', Y = 2566, T = [[2566, 5, 16, 2566, 10, 31], [2566, 11, 1, 2567, 3, 31]], MON_G = [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3], DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
@@ -116,7 +117,7 @@ function build(g) {
       for (let d = 1; d <= nd; d++) {
         const key = yb * 10000 + (MON_G[m] + 1) * 100 + d, w = new Date(Date.UTC(yb - 543, MON_G[m], d)).getUTCDay();
         const inT = T.some(([y1, m1, d1, y2, m2, d2]) => key >= y1 * 10000 + m1 * 100 + d1 && key <= y2 * 10000 + m2 * 100 + d2);
-        if (inT && w >= 1 && w <= 5 && !HOLI.has(`${yb}-${MON_G[m] + 1}-${d}`)) set(CAL, col(2 + d - 1) + row, DOW[w]);
+        if (inT && w >= 1 && w <= 5 && !HOLI.has(`${yb}-${MON_G[m] + 1}-${d}`)) { set(CAL, col(2 + d - 1) + row, DOW[w]); schoolDays.push({ key: String(key), w }); }
       }
     }
     set(CAL, 'A2', '16 พฤษภาคม 2566 - 31 มีนาคม 2567');
@@ -136,13 +137,30 @@ function build(g) {
       set(AT, rc(row, c), x < miss * 0.5 ? 'ป' : x < miss * 0.8 ? 'ล' : x < miss ? 'ข' : 1);
     }
   });
-  return { g, edits };
+  // เวลาเรียนรายวิชา: แต่ละวิชาสอนคนละวัน/คนละจำนวนคาบ (อา..ส) · เช็คครบทุกวัน นักเรียนส่วนใหญ่มา
+  const SCHED = [[0, 1, 1, 1, 1, 1, 0], [0, 1, 1, 1, 1, 1, 0], [0, 1, 0, 1, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0], [0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0], [0, 0, 0, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0, 0]];
+  const att = {};
+  subs.forEach((sb, j) => {
+    const p = SCHED[j], marks = {};
+    for (const sd of schoolDays) {
+      if (!p[sd.w]) continue;
+      let str = '';
+      for (let i = 0; i < 45; i++) {
+        if (i >= kids.length) { str += '-'; continue; }
+        const x = r(), miss = 0.07 * (1.35 - kids[i].a);
+        str += x < miss * 0.5 ? 'ป' : x < miss * 0.75 ? 'ล' : x < miss ? 'ข' : '1';
+      }
+      marks[sd.key] = str;
+    }
+    att[sb.slot] = { p, off: [], marks };
+  });
+  return { g, edits, att };
 }
 
 fs.mkdirSync(OUT, { recursive: true });
 for (const g of [1, 2, 3, 4, 5, 6]) {
-  const { edits } = build(g);
-  const doc = { v: 3, grade: g, room: 1, cells: edits, savedAt: new Date(0).toISOString() };
+  const { edits, att } = build(g);
+  const doc = { v: 3, grade: g, room: 1, cells: edits, att, savedAt: new Date(0).toISOString() };
   fs.writeFileSync(path.join(OUT, `p${g}.json`), JSON.stringify(doc));
   console.log(`p${g}: ${Object.values(edits).reduce((a, m) => a + Object.keys(m).length, 0)} cells`);
 }

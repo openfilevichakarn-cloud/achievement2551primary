@@ -40,3 +40,9 @@ table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
 table.att th.dh{min-width:34px;cursor:pointer;font-size:.8rem}
 table.att td.gtd .pc{min-width:34px;min-height:34px;font-size:.95rem;border-radius:6px;padding:0}
 table.att th small{font-weight:400}
+
+/* เวลาเรียนรายวิชา */
+table.att th.dh.off{background:#d1d5db;color:#6b7280}
+table.att td.offc{background:repeating-linear-gradient(45deg,#e5e7eb,#e5e7eb 4px,#f3f4f6 4px,#f3f4f6 8px)}
+table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
+.tw table th.we{opacity:.65}

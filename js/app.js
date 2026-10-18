@@ -18,7 +18,7 @@
   const S = {
     code: null, school: null, grade: 1, room: 1, rooms: {}, template: null, wb: null, styles: null,
     view: { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() },
-    userEdits: {}, version: 0, dirty: false, saving: false, active: null, zoom: 'fit', saveTimer: null, offline: false,
+    userEdits: {}, att: {}, version: 0, dirty: false, saving: false, active: null, zoom: 'fit', saveTimer: null, offline: false,
   };
 
   // ---------------------------------------------------------------- UI helpers
@@ -102,7 +102,7 @@
     $('#xl-css').textContent = R.styleCss(S.styles);
     S.wb = new P.Workbook(S.template);
     S.view = { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() };
-    S.userEdits = {};
+    S.userEdits = {}; S.att = {};
     $('#loading-msg').textContent = 'กำลังโหลดข้อมูลของโรงเรียน...';
     let doc = null;
     try {
@@ -125,6 +125,7 @@
   }
 
   function applyDoc(doc) {
+    S.att = (doc && doc.att) || {};
     if (doc && doc.cells) {
       for (const [sheet, m] of Object.entries(doc.cells)) {
         if (!S.wb.sheet(sheet)) continue;
@@ -210,7 +211,7 @@
     draw();
   }
 
-  function buildDoc() { return { v: 3, grade: S.grade, room: S.room, cells: S.userEdits, active: S.active, savedAt: new Date().toISOString() }; }
+  function buildDoc() { return { v: 3, grade: S.grade, room: S.room, cells: S.userEdits, att: S.att, active: S.active, savedAt: new Date().toISOString() }; }
   function markDirty() {
     if (S.batch) { S.pendingDirty = true; S.dirty = true; return; }
     S.dirty = true; setStatus('มีการแก้ไข... (จะบันทึกอัตโนมัติ)', 'dirty');
