@@ -1,0 +1,206 @@
+/* register.js — หน้าสั่งซื้อ: เลือกชั้น -> โอนเงิน -> แนบสลิป -> ตรวจสลิปอัตโนมัติ (Edge Function auto-register) -> ได้รหัสสิทธิ์ทันที
+ * ราคา / บัญชีรับเงิน อ่านจากฐานข้อมูล (sales_info — ผู้ดูแลตั้งได้ในหน้า admin.html) ยอดจริงคำนวณซ้ำฝั่งเซิร์ฟเวอร์เสมอ
+ * โหมดทดลอง (ไม่มี Supabase): จำลองราคา 500 บาท/ชั้น และออกรหัสตัวอย่าง (ไม่ใช่รหัสจริง) */
+(function () {
+  'use strict';
+  const $ = (s, e) => (e || document).querySelector(s);
+  const $$ = (s, e) => Array.from((e || document).querySelectorAll(s));
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const cfg = window.PP_CONFIG || {}, SALES = cfg.SALES || {};
+  const MESSENGER = SALES.MESSENGER;
+  const isDemo = !(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+  const base = isDemo ? '' : cfg.SUPABASE_URL.replace(/\/$/, '');
+  const H = isDemo ? {} : { apikey: cfg.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + cfg.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+  const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const fmtAcc = (a) => { const d = String(a || '').replace(/\D/g, ''); return d.length === 10 ? `${d.slice(0, 3)}-${d[3]}-${d.slice(4, 9)}-${d[9]}` : a; };
+  let INFO = null, slipData = null, slipQr = null;
+
+  function contactHtml(cls) {
+    const items = [];
+    if (SALES.FACEBOOK) items.push(`<a class="btn ${cls || ''}" href="${esc(SALES.FACEBOOK)}" target="_blank" rel="noopener">Facebook: เปิดไฟล์วิชาการ</a>`);
+    if (SALES.LINE_ID) items.push(`<span class="btn ${cls || ''}">LINE: ${esc(SALES.LINE_ID)}</span>`);
+    if (SALES.PHONE) items.push(`<a class="btn ${cls || ''}" href="tel:${esc(SALES.PHONE.replace(/[^\d+]/g, ''))}">โทร ${esc(SALES.PHONE)}</a>`);
+    return items.join('');
+  }
+  // สถิติผู้เข้าชม (ท้ายหน้า): นับ 1 ครั้งต่อการเปิดเบราว์เซอร์ 1 รอบ — ถ้ายังไม่ได้รัน sql/stats.sql จะไม่แสดง
+  async function visitStats() {
+    if (isDemo) return;
+    let hit = true; try { hit = !sessionStorage.getItem('pp_reg_seen'); sessionStorage.setItem('pp_reg_seen', '1'); } catch (e) { /* นับทุกครั้ง */ }
+    try {
+      const r = await fetch(`${base}/rest/v1/rpc/page_hit`, { method: 'POST', headers: H, body: JSON.stringify({ p_page: 'register', p_hit: hit }) });
+      if (!r.ok) return;
+      const s = await r.json(), f = (x) => Number(x || 0).toLocaleString('th-TH'), el = $('#rg-stats');
+      el.innerHTML = `👁 ผู้เข้าชม วันนี้ <b>${f(s.today)}</b> · เมื่อวาน <b>${f(s.yesterday)}</b> · เดือนนี้ <b>${f(s.month)}</b> · ทั้งหมด <b>${f(s.total)}</b> ครั้ง`;
+      el.hidden = false;
+    } catch (e) { /* ไม่แสดง */ }
+  }
+  async function loadInfo() {
+    if (isDemo) return { ok: true, price_per_grade: 500, price_all: 2500, auto: true, bank: 'ธนาคารตัวอย่าง', account_no: '0000000000', account_name: 'ชื่อบัญชีตัวอย่าง', demo: true };
+    const r = await fetch(`${base}/rest/v1/rpc/sales_info`, { method: 'POST', headers: H, body: '{}' });
+    if (!r.ok) throw new Error('sales_info ' + r.status);
+    return r.json();
+  }
+  // ราคาตามจำนวนชั้น (ต้องตรงกับ _order_amount ในฐานข้อมูล)
+  function priceFor(n) {
+    const per = INFO && INFO.price_per_grade != null ? Number(INFO.price_per_grade) : null, all = INFO && INFO.price_all != null ? Number(INFO.price_all) : null;
+    if (!n) return null;
+    if (n === 6 && all != null) return all;
+    if (per == null) return null;
+    return all != null ? Math.min(per * n, all) : per * n;
+  }
+  const grades = () => $$('[name=grades]:checked').map(x => +x.value);
+  function updateAmount() {
+    const a = priceFor(grades().length);
+    $('#amount').textContent = $('#amount2').textContent = a == null ? '–' : fmt(a);
+  }
+  function renderPrice() {
+    const per = INFO.price_per_grade, all = INFO.price_all;
+    const open = per != null || all != null;
+    $('#packages').innerHTML = open
+      ? `<div class="rg-price">${per != null ? `<div class="rg-pk"><h3>รายชั้น</h3><p class="rg-amt">${fmt(per)} บาท<small>/ ชั้น</small></p><ul><li>เลือกเฉพาะชั้นที่ใช้</li><li>ใช้ได้ทุกห้องในชั้นนั้น (ไม่เกิน 10 ห้อง)</li><li>ปพ.5 + ปพ.6 ครบ</li></ul><a class="btn wide" href="#register">สั่งซื้อ</a></div>` : ''}
+          ${all != null ? `<div class="rg-pk hot"><span class="rg-badge">คุ้มที่สุด</span><h3>ทั้งโรงเรียน (ป.1–ป.6)</h3><p class="rg-amt">${fmt(all)} บาท<small>/ 6 ชั้น</small></p><ul><li>ครบทุกชั้น ป.1–ป.6</li><li>ชั้นละไม่เกิน 10 ห้อง</li><li>ใช้รหัสเดียวทั้งโรงเรียน</li></ul><a class="btn primary wide" href="#register" data-all>สั่งซื้อทั้งโรงเรียน</a></div>` : ''}</div>`
+      : `<div class="card rg-ask"><h3>ติดต่อสอบถามราคา</h3><p>ส่งข้อความหาเราได้ที่ช่องทางนี้</p><div class="row">${contactHtml()}</div></div>`;
+    $$('[data-all]').forEach(a => a.addEventListener('click', () => { $$('[name=grades]').forEach(x => { x.checked = true; }); updateAmount(); }));
+    if (per != null && all != null) $('#price-note').textContent = `ราคา ชั้นละ ${fmt(per)} บาท · ทั้ง 6 ชั้น ${fmt(all)} บาท`;
+    else if (per != null) $('#price-note').textContent = `ราคา ชั้นละ ${fmt(per)} บาท`;
+    $('#bk-bank').textContent = INFO.bank || '';
+    $('#bk-no').textContent = fmtAcc(INFO.account_no || '');
+    $('#bk-name').textContent = INFO.account_name || '';
+    if (!open) { $('#order-form').hidden = true; const c = $('#order-closed'); c.hidden = false; c.innerHTML = `<h3>ยังไม่เปิดสั่งซื้ออัตโนมัติ</h3><p>ติดต่อสั่งซื้อได้ที่ช่องทางนี้</p><div class="row">${contactHtml()}</div>`; }
+  }
+
+  // อ่าน QR บนสลิป (EasySlip API v2 ตรวจจากข้อความใน QR) — ลองหลายขนาดเพราะ QR ในสลิปบางธนาคารเล็กมาก
+  function scanQr(img) {
+    if (!window.jsQR) return null;
+    for (const max of [1600, 1000, 2400]) {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      const g = cv.getContext('2d'); g.drawImage(img, 0, 0, cv.width, cv.height);
+      const r = window.jsQR(g.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: 'attemptBoth' });
+      if (r && r.data) return r.data;
+    }
+    return null;
+  }
+  // ย่อรูปสลิป (คงความคมของ QR) -> JPEG dataURL
+  function readSlip(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, 1400 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+        try { slipQr = scanQr(img); } catch (e) { slipQr = null; }
+        URL.revokeObjectURL(url); resolve(cv.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('อ่านไฟล์รูปไม่ได้')); };
+      img.src = url;
+    });
+  }
+
+  async function submit(order) {
+    if (isDemo) {
+      await new Promise(r => setTimeout(r, 900));
+      const h = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      try { const k = 'pp_demo_orders', x = JSON.parse(localStorage.getItem(k) || '[]'); x.push({ ...order, id: crypto.randomUUID(), ref: h.slice(0, 6), status: 'approved', has_slip: !!order.slip_image, created_at: new Date().toISOString() }); localStorage.setItem(k, JSON.stringify(x)); } catch (e) { /* ignore */ }
+      return { ok: true, status: 'approved', code: 'DEMO-' + h.slice(0, 4) + '-' + h.slice(4, 8) + '-' + h.slice(8, 12), school: order.school, grades: order.grades, ref: h.slice(0, 6), demo: true };
+    }
+    // 1) ตรวจสลิปอัตโนมัติผ่าน Edge Function
+    let r = null, j = null;
+    try {
+      r = await fetch(`${base}/functions/v1/auto-register`, { method: 'POST', headers: H, body: JSON.stringify({ order }) });
+      j = await r.json().catch(() => null);
+    } catch (e) { console.warn('auto-register unreachable', e); }
+    if (j && j.ok === false && r.status < 500) throw new Error(j.error || 'ส่งไม่สำเร็จ');   // ข้อมูลไม่ถูกต้อง เช่น ไม่กรอกชื่อ / ราคาเปลี่ยน
+    if (r && r.ok && j && j.ok) return j;
+    // 2) ติดต่อระบบตรวจสลิปไม่ได้ (ยังไม่ติดตั้ง / ขัดข้อง): ส่งคำสั่งซื้อ + สลิปให้ผู้ดูแลตรวจเอง
+    console.warn('auto-register failed', r && r.status, j);
+    let m;
+    try { m = await fetch(`${base}/rest/v1/rpc/order_submit_manual`, { method: 'POST', headers: H, body: JSON.stringify({ p: order }) }); }
+    catch (e) { throw new Error('เชื่อมต่ออินเทอร์เน็ตไม่ได้ กรุณาตรวจสอบสัญญาณแล้วลองใหม่'); }
+    const mj = await m.json().catch(() => null);
+    if (!m.ok || !mj) throw new Error('ระบบรับคำสั่งซื้อขัดข้องชั่วคราว (' + (r ? 'ตรวจสลิป ' + r.status : 'ติดต่อระบบตรวจสลิปไม่ได้') + ') กรุณาติดต่อทางเพจ — ไม่ต้องโอนเงินซ้ำ');
+    if (mj.ok === false) throw new Error(mj.error || 'ส่งไม่สำเร็จ');
+    return mj;
+  }
+
+  function done(res, order) {
+    $('#order-form').hidden = true;
+    const box = $('#reg-done'); box.hidden = false;
+    const gl = (res.grades || order.grades).map(g => 'ป.' + g).join(', ');
+    if (res.status === 'approved' && res.code) {
+      box.innerHTML = `<div class="rg-ok">✓</div><h3>ชำระเงินเรียบร้อย — นี่คือรหัสสิทธิ์ของโรงเรียน</h3>
+        ${res.demo ? '<p class="err">โหมดทดลอง: รหัสนี้เป็นตัวอย่าง ใช้งานจริงไม่ได้</p>' : ''}
+        <div class="rg-code" id="the-code">${esc(res.code)}</div>
+        <div class="row" style="justify-content:center"><button class="btn" id="copy-code">คัดลอกรหัส</button><a class="btn primary" href="./">เข้าสู่ระบบ</a></div>
+        <p><b>${esc(res.school || order.school)}</b> · ชั้น ${esc(gl)} · เลขที่คำสั่งซื้อ ${esc(res.ref || '')}</p>
+        <p class="rg-warn">⚠️ <b>จดหรือบันทึกรหัสนี้เก็บไว้</b> ระบบแสดงรหัสครั้งเดียว ครูทุกคนในโรงเรียนใช้รหัสนี้เข้าระบบ ห้ามเผยแพร่ให้บุคคลภายนอก (ถ้ารหัสหาย ติดต่อเพื่อออกรหัสใหม่ได้ ข้อมูลไม่หาย)</p>`;
+      $('#copy-code').onclick = () => copy(res.code);
+    } else {
+      box.innerHTML = `<div class="rg-ok wait">⏳</div><h3>ได้รับคำสั่งซื้อแล้ว — รอเจ้าหน้าที่ตรวจสอบ</h3>
+        <p>เลขที่คำสั่งซื้อ <b class="rg-ref">${esc(res.ref || '')}</b> · ${esc(order.school)} · ชั้น ${esc(gl)}</p>
+        ${res.reason ? `<p class="hint">ระบบตรวจอัตโนมัติไม่ผ่าน: ${esc(res.reason)}</p>` : ''}
+        <p><b>กรุณาติดต่อแอดมินทางแชทเพจ</b> แจ้งเลขที่คำสั่งซื้อ <b>${esc(res.ref || '')}</b> เพื่อรับรหัสสิทธิ์ — เจ้าหน้าที่จะตรวจสลิปและส่งรหัสให้ในแชท <b>ไม่ต้องโอนเงินซ้ำ</b></p>
+        <div class="row" style="justify-content:center"><a class="btn primary big" href="${esc(MESSENGER)}" target="_blank" rel="noopener">💬 แชทกับแอดมินทางเพจ</a></div>`;
+    }
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    const el = document.createElement('div'); el.className = 'toast ok'; el.textContent = 'คัดลอกแล้ว'; $('#toasts').appendChild(el); setTimeout(() => el.remove(), 2500);
+  }
+
+  async function boot() {
+    if (SALES.DEMO_URL) $('#demo-link').href = SALES.DEMO_URL;
+    $('#contact').innerHTML = `<b>ติดต่อสอบถาม</b><div class="row">${contactHtml('ghost')}</div>`;
+    const openPdpa = () => { const d = $('#pdpa'); if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0); } };
+    $('#pdpa-link').addEventListener('click', (e) => { e.preventDefault(); openPdpa(); });
+    if (location.hash === '#pdpa') openPdpa();
+    $('#all-grades').onclick = () => { const cb = $$('[name=grades]'); const on = !cb.every(x => x.checked); cb.forEach(x => { x.checked = on; }); updateAmount(); };
+    $$('[name=grades]').forEach(x => x.addEventListener('change', updateAmount));
+    $('#copy-acc').onclick = () => copy(String(INFO && INFO.account_no || '').replace(/\D/g, ''));
+    // วันเวลาที่โอน: เลือก วัน/เดือน/ปี พ.ศ. และเวลา 24 ชม. — ยึดเวลาประเทศไทยเสมอ (ไม่ขึ้นกับภาษา/เขตเวลาของเครื่อง)
+    const TH_M = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    const bkk = new Date(Date.now() + 7 * 3600000), pad = (x) => String(x).padStart(2, '0');
+    const opts = (name, list, sel) => { $(`[name=${name}]`).innerHTML = list.map(([v, t]) => `<option value="${v}"${v === sel ? ' selected' : ''}>${t}</option>`).join(''); };
+    opts('t_d', Array.from({ length: 31 }, (_, i) => [i + 1, String(i + 1)]), bkk.getUTCDate());
+    opts('t_m', TH_M.map((m, i) => [i + 1, m]), bkk.getUTCMonth() + 1);
+    opts('t_y', [bkk.getUTCFullYear(), bkk.getUTCFullYear() - 1].map(y => [y, String(y + 543)]), bkk.getUTCFullYear());
+    opts('t_hh', Array.from({ length: 24 }, (_, i) => [i, pad(i)]), bkk.getUTCHours());
+    opts('t_mi', Array.from({ length: 60 }, (_, i) => [i, pad(i)]), bkk.getUTCMinutes());
+    $('#slip').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try {
+        slipData = await readSlip(f); $('#slip-preview').src = slipData; $('#slip-preview').hidden = false; $('#slip-label').textContent = '✓ ' + f.name;
+        const q = $('#slip-qr'); q.hidden = false;
+        q.innerHTML = slipQr ? '✓ อ่าน QR บนสลิปได้ — พร้อมตรวจอัตโนมัติ' : '⚠️ อ่าน QR บนสลิปไม่ได้ (ลองใช้รูปสลิปจากแอปธนาคารโดยตรง ไม่ครอปหรือถ่ายจากหน้าจอ) — ส่งได้ แต่อาจต้องรอเจ้าหน้าที่ตรวจ';
+        q.style.color = slipQr ? 'var(--ok)' : 'var(--warn)';
+      } catch (x) { slipData = null; slipQr = null; $('#reg-err').textContent = x.message; }
+    });
+    visitStats();
+    try { INFO = await loadInfo(); } catch (e) { INFO = { price_per_grade: null, price_all: null }; }
+    renderPrice(); updateAmount();
+
+    $('#order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target, v = (n) => (f.elements[n].value || '').trim(), err = $('#reg-err');
+      const g = grades(), amount = priceFor(g.length);
+      const n = (k) => +f.elements[k].value, pd = (x) => String(x).padStart(2, '0');
+      const y = n('t_y'), mo = n('t_m'), d = n('t_d');
+      const okDate = new Date(Date.UTC(y, mo - 1, d)).getUTCDate() === d;   // กัน 31 กุมภาพันธ์
+      const order = { school: v('school'), website: v('website'), grades: g, amount,
+        transfer_at: okDate ? `${y}-${pd(mo)}-${pd(d)}T${pd(n('t_hh'))}:${pd(n('t_mi'))}:00+07:00` : '', slip_image: slipData, slip_qr: slipQr };
+      const bad = (msg, n) => { err.textContent = msg; if (n) f.elements[n].focus(); };
+      if (!g.length) return bad('กรุณาเลือกชั้นที่ต้องการอย่างน้อย 1 ชั้น');
+      if (amount == null) return bad('ยังไม่เปิดสั่งซื้อชั้นที่เลือก กรุณาติดต่อทางเพจ');
+      if (order.school.length < 3) return bad('กรุณากรอกชื่อโรงเรียน', 'school');
+      if (!order.transfer_at) return bad('วันที่โอนไม่ถูกต้อง กรุณาตรวจวันที่และเดือน', 't_d');
+      if (!slipData) return bad('กรุณาแนบรูปสลิปการโอนเงิน');
+      if (!$('#consent').checked) return bad('กรุณาติ๊กยอมรับข้อกำหนดก่อนส่ง');
+      err.textContent = ''; const btn = $('#reg-go'); btn.disabled = true; btn.textContent = 'กำลังตรวจสลิป...';
+      try { done(await submit(order), order); }
+      catch (x) { bad(x.message || 'ส่งไม่สำเร็จ'); }
+      finally { btn.disabled = false; btn.textContent = 'ส่งสลิปและรับรหัสสิทธิ์'; }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', boot);
+})();
