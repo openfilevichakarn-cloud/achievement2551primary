@@ -37,6 +37,24 @@
     return out.join('\n');
   }
 
+  const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const TH_MON_S = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const TH_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  // รูปแบบวันที่ของ Excel -> ข้อความไทย (ปี พ.ศ.) · คืน null ถ้าไม่ใช่รูปแบบวันที่
+  function fmtDateNum(v, nf) {
+    const isDate = /dddd|mmm|m\/d\/yyyy|d\/m\/yyyy|\[\$-41E\]/.test(nf);
+    if (!isDate || v < 1 || v > 500000) return null;
+    // ไฟล์ต้นฉบับเก็บวันที่เป็นปี พ.ศ. ในช่องปีของ Excel (เช่น 16 พ.ค. 2566 = ปี 2566) จึงแสดงปีตามที่เก็บ ส่วนวันในสัปดาห์คำนวณจากปี ค.ศ. จริง (พ.ศ. - 543)
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 864e5), y = d.getUTCFullYear(), mo = d.getUTCMonth(), dd = d.getUTCDate();
+    const wd = new Date(Date.UTC(y - 543, mo, dd)).getUTCDay();
+    if (/dddd/.test(nf)) return 'วัน' + TH_DAYS[wd] + 'ที่ ' + dd + ' ' + TH_MONTHS[mo] + ' ' + y;
+    if (/m\/d\/yyyy/.test(nf)) return String(dd).padStart(2, '0') + '/' + String(mo + 1).padStart(2, '0') + '/' + y;
+    if (/mmmm/.test(nf)) return dd + ' ' + TH_MONTHS[mo] + ' ' + y;
+    if (/d\\-mmm/.test(nf)) return dd + '-' + TH_MON_S[mo];
+    if (/mmm\\-yy/.test(nf)) return TH_MON_S[mo] + '-' + String(y).slice(-2);
+    return null;
+  }
+
   function fmtValue(v, style) {
     if (v && v.isRange) return '';
     if (v === null || v === undefined) return '';
@@ -47,6 +65,9 @@
       if (nf === '0') return String(Math.sign(v) * Math.round(Math.abs(v)));
       if (nf === '0.0' || nf === '0.00' || nf === '0.000') { const d = nf.length - 2; return v.toFixed(d); }
       if (nf === '@') return P.toText(v);
+      const dt = fmtDateNum(v, nf); if (dt !== null) return dt;
+      if (/^0\\ 0000/.test(nf) || /^#\\-####/.test(nf)) { const d = String(Math.round(v)).padStart(13, '0'); return d.replace(/^(\d)(\d{4})(\d{5})(\d{2})(\d)$/, '$1 $2 $3 $4 $5'); }
+      if (/#,##0/.test(nf)) { const dec = /0\.0+/.exec(nf); return v.toLocaleString('en-US', { minimumFractionDigits: dec ? dec[0].length - 2 : 0, maximumFractionDigits: dec ? dec[0].length - 2 : 0 }); }
       if (Number.isInteger(v)) return String(v);
       return String(Number(v.toPrecision(10)));
     }
@@ -151,7 +172,7 @@
           if (cs > 1) attrs += ` colspan="${cs}"`; if (rs > 1) attrs += ` rowspan="${rs}"`;
         }
         let v = wb.get(sh, r, sc); if (v && v.isRange) v = wb.scalar(v);
-        const editable = !!(cell && cell.u) && edit && !(view && view.locked && view.locked.has(sheetName + '!' + P.numToCol(c) + r));
+        const editable = !!edit && (opts.canEdit ? opts.canEdit(sheetName, r, sc, cell) : !!(cell && cell.u)) && !(view && view.locked && view.locked.has(sheetName + '!' + P.numToCol(c) + r));
         if (editable) cls += ' inp';
         const sp = [];
         const ov = bgOv && bgOv[P.numToCol(c) + r];

@@ -14,6 +14,9 @@ NO_CELL = {'ปพ.6 เทอม 1': '$K$8', 'ปพ.6 เทอม 2': '$K$8',
 SCRUB = {'ข้อมูลพื้นฐาน': ['C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C14'] + ['A%d' % r for r in range(15, 23)],
          'สารบัญ': ['D6', 'D7'], 'คู่มือ': ['A35']}
 
+# ข้อมูลตัวอย่างในไฟล์ต้นฉบับที่ต้องล้างให้ห้องใหม่เริ่มจากว่าง (รายวิชาตัวอย่าง / เครื่องหมาย / ในช่องกิจกรรม)
+CLEAR = {'รายวิชา': ['B6', 'C6', 'D6', 'E6', 'F6']}
+
 
 def sheet_paths(z):
     wb = z.read('xl/workbook.xml').decode('utf8'); rels = z.read('xl/_rels/workbook.xml.rels').decode('utf8')
@@ -97,6 +100,12 @@ def main():
     for s in d['sheets']:
         for ref in SCRUB.get(s['name'], []):
             if ref in s['cells']: s['cells'][ref].pop('v', None)
+    for s in d['sheets']:
+        for ref in CLEAR.get(s['name'], []):
+            if ref in s['cells']: s['cells'][ref].pop('v', None)
+        if s['name'].startswith('กิจกรรม '):
+            for c in s['cells'].values():
+                if c.get('u') and c.get('v') == '/': c.pop('v')
     d['source'] = os.path.basename(src)
     json.dump(d, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     print('พื้นที่พิมพ์', n, 'ชีท ->', dst, round(os.path.getsize(dst) / 1e6, 1), 'MB')
