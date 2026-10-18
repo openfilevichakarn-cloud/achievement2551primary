@@ -180,7 +180,7 @@
       case 'stupre': { const cur = U.stuPrefix === undefined ? (() => { for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) return true; return false; })() : U.stuPrefix; set({ stuPrefix: !cur }); break; }
       case 'tsub': set({ tsub: k }); break;
       case 'asub-step': { const list = subjects().filter(x => true); const i = list.findIndex(x => x.slot === U.asub); const nx = list[i + (+k)]; if (nx) set({ asub: nx.slot }); break; }
-      case 'amonth': set({ amonth: +k }); break;
+      case 'amonth': set({ amonth: isNaN(+k) ? k : +k }); break;
       case 'aoff': subjOff(U.asub, k); break;
       case 'aov': {   // วนตามลำดับ: ตามรายห้อง → ข → ป → ล → 1 → 2 .. (จำนวนคาบของวันนั้น) → ตามรายห้อง
         const i = +b.dataset.i, per = +b.dataset.per || 1, cur = ovOf(U.asub, k, i);
@@ -198,7 +198,7 @@
       case 'calnext': if (!calTotal()) { A().toast('ยังไม่ได้เลือกวันเรียนในปฏิทิน', 'warn'); break; } set({ tsub: 'att' }); break;
       case 'calprint': A().printSheets([CAL]); break;
       case 'caltog': calToggle(b); break;
-      case 'attm': set({ attMonth: +k }); break;
+      case 'attm': set({ attMonth: isNaN(+k) ? k : +k }); break;
       case 'attcyc': attCycle(b); break;
       case 'attday': attFill(U.attMonth, +b.dataset.d); refresh(); break;
       case 'attfill': attFill(U.attMonth); refresh(); break;
@@ -454,14 +454,49 @@
   }
   const MARK = { 1: '✓', 'ข': 'ข', 'ป': 'ป', 'ล': 'ล' };
   const attKind = (v) => (v === 1 || v === '1' ? 1 : MARK[v] ? v : null);
+  // ---- สรุปเวลาเรียนรายภาคเรียน (ต่อจากเดือนเมษายน): เทอม 1 · เทอม 2 · รวม
+  const TERM_KEY = { T1: 1, T2: 2, S: 'sum' };
+  const isTermKey = (k) => typeof k === 'string' && k in TERM_KEY;
+  const termLabel = (t) => (t === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + t);
+  const termBtns = (act, cur) => [['T1', 'สรุปเทอม 1'], ['T2', 'สรุปเทอม 2'], ['S', 'สรุปรวม']].map(([k, t]) => `<button role="tab" data-act="${act}" data-k="${k}" class="${cur === k ? 'on' : ''}">${t}</button>`).join('');
+  const monthsOf = (term) => MONTHS.map((_, m) => m).filter(m => inTerm(m, term));
+  const shortMon = (m) => MONTHS[m].slice(0, 3) + '.';
+  // สถิติเวลาเรียนรายห้อง (หน่วย = วัน) ของนักเรียนคนที่ i ในภาคเรียน/ทั้งปี · pct คิดจากวันที่เช็คแล้ว
+  function classStat(i, term) {
+    const b = attBlocks(), r = { plan: 0, checked: 0, present: 0, sick: 0, leave: 0, absent: 0, pct: null, per: {} };
+    for (const m of monthsOf(term)) {
+      r.per[m] = 0; if (!b[m]) continue;
+      for (let d = 1; d <= Math.min(daysIn(m), b[m].days); d++) {
+        if (!calDay(m, d)) continue;
+        r.plan++; const k = attKind(get(ATT, 5 + i, b[m].start + d - 1)); if (!k) continue;
+        r.checked++; if (k === 1) { r.present++; r.per[m]++; } else if (k === 'ป') r.sick++; else if (k === 'ล') r.leave++; else if (k === 'ข') r.absent++;
+      }
+    }
+    if (r.checked) r.pct = r.present * 100 / r.checked;
+    return r;
+  }
+  // ตารางสรุปบนหน้าจอ (รายห้อง): คอลัมน์ = เดือนในภาคเรียน (หรือเทอม 1 / เทอม 2 เมื่อรวมทั้งปี)
+  function vAttSummary(term) {
+    const n = nStudents(), low = (p) => p !== null && p < PCT_MIN;
+    const cols = term === 'sum' ? [[1, 'เทอม 1'], [2, 'เทอม 2']] : monthsOf(term).filter(m => calCount(m)).map(m => [m, shortMon(m)]);
+    let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>' + cols.map(([, t]) => `<th>${esc(t)}<br><small>มา (วัน)</small></th>`).join('') + '<th>รวมมา</th><th>ป่วย</th><th>ลา</th><th>ขาด</th><th>วันที่เช็ค<br><small>จากวันเรียน</small></th><th>ร้อยละ</th>', body = '';
+    for (let i = 0; i < n; i++) {
+      const st = classStat(i, term), t1 = term === 'sum' ? classStat(i, 1) : null, t2 = term === 'sum' ? classStat(i, 2) : null;
+      body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>` + cols.map(([c]) => `<td class="num">${(term === 'sum' ? (c === 1 ? t1 : t2).present : st.per[c]) || '-'}</td>`).join('')
+        + `<td class="num"><b>${st.present || '-'}</b></td><td class="num">${st.sick || '-'}</td><td class="num">${st.leave || '-'}</td><td class="num">${st.absent || '-'}</td><td class="num">${st.checked}/${st.plan}</td><td class="num${low(st.pct) ? ' warnc' : ''}"><b>${fmtPct(st.pct)}</b></td></tr>`;
+    }
+    return `<div class="card soft row sp"><span><b>สรุปเวลาเรียน ${termLabel(term)}</b> <span class="hint">ดูอย่างเดียว คำนวณจากการเช็คชื่อรายวันของครูประจำชั้น · ร้อยละ = วันที่มา ÷ วันที่เช็คแล้ว</span></span><span class="row"><button class="btn primary" data-act="attprint">พิมพ์สรุปนี้</button><button class="btn" data-act="attprintall">พิมพ์ทุกเดือน + สรุปทั้ง 3</button></span></div>
+      <div class="tw"><table class="t sheet p5t"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
   function vAttendance() {
     const n = nStudents(), blocks = attBlocks();
     if (calTotal() === 0) return '<div class="card empty"><b>ยังไม่ได้สร้างปฏิทินวันเรียน</b>ต้องกำหนดวันเรียนก่อน ระบบจึงจะรู้ว่าแต่ละเดือนมีวันเรียนกี่วัน<br><br><button class="btn primary" data-act="tsub" data-k="cal">ไปสร้างปฏิทิน</button></div>';
     if (!n) return '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่ ข้อมูล › นักเรียน ก่อน</div>';
     if (blocks.length < 12) return '<div class="card empty"><b>อ่านผังเวลาเรียนไม่ได้</b>ลองเปิดชีทเวลาเรียนในเมนูเอกสาร</div>';
-    let m = U.attMonth; if (m === undefined || !calCount(m)) m = MONTHS.findIndex((_, i) => calCount(i) > 0); U.attMonth = m;
+    let m = U.attMonth; if (!isTermKey(m) && (m === undefined || !calCount(m))) m = MONTHS.findIndex((_, i) => calCount(i) > 0); U.attMonth = m;
+    const mseg = `<div class="seg" role="tablist">${MONTHS.map((nm, i) => `<button role="tab" data-act="attm" data-k="${i}" class="${i === m ? 'on' : ''}"${calCount(i) ? '' : ' disabled'}>${esc(nm.length > 7 ? nm.slice(0, 5) + '.' : nm)}</button>`).join('')}${termBtns('attm', m)}</div>`;
+    if (isTermKey(m)) return `<div class="bar">${mseg}</div>` + vAttSummary(TERM_KEY[m]);
     const mb = blocks[m], days = []; for (let d = 1; d <= mb.days; d++) if (calDay(m, d)) days.push(d);
-    const mseg = `<div class="seg" role="tablist">${MONTHS.map((nm, i) => `<button role="tab" data-act="attm" data-k="${i}" class="${i === m ? 'on' : ''}"${calCount(i) ? '' : ' disabled'}>${esc(nm.length > 7 ? nm.slice(0, 5) + '.' : nm)}</button>`).join('')}</div>`;
     let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', body = '';
     for (const d of days) th += `<th class="dh" data-act="attday" data-d="${d}" title="กดเพื่อเติม “มา” ทั้งห้องในวันนี้">${d}<br><small>${esc(calDay(m, d))}</small></th>`;
     th += '<th class="ro">มา</th><th class="ro">ป่วย</th><th class="ro">ลา</th><th class="ro">ขาด</th>';
@@ -475,7 +510,7 @@
       <div class="card soft row sp"><span><b>${MONTHS[m]} ${monthBE(m)}</b> · วันเรียน ${days.length} วัน <span class="hint">แตะช่อง: ว่าง → ✓ มา → ข ขาด → ป ป่วย → ล ลา → ว่าง · กดตัวเลขวันที่หัวตารางเพื่อเติม “มา” ทั้งห้อง</span></span>
         <span class="row"><button class="btn sm" data-act="attfill">มาครบทั้งเดือน (เติมช่องว่าง)</button><button class="btn sm danger" data-act="attclear">ล้างเดือนนี้</button></span></div>
       <div class="tw"><table class="t sheet att"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
-      <div class="card row sp" style="margin-top:12px"><span class="hint">ครูประจำชั้นเช็คที่นี่ครั้งเดียว เวลาเรียนรายวิชาจะดึงไปใช้เอง</span><span class="row"><button class="btn" data-act="tsub" data-k="sched">ต่อไป: ตารางสอน →</button><button class="btn" data-act="attprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="attprintall">พิมพ์ทุกเดือน + สรุปทั้งปี</button></span></div>`;
+      <div class="card row sp" style="margin-top:12px"><span class="hint">ครูประจำชั้นเช็คที่นี่ครั้งเดียว เวลาเรียนรายวิชาจะดึงไปใช้เอง</span><span class="row"><button class="btn" data-act="tsub" data-k="sched">ต่อไป: ตารางสอน →</button><button class="btn" data-act="attprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="attprintall">พิมพ์ทุกเดือน + สรุปเทอม 1/2/รวม</button></span></div>`;
   }
   function attCell(r, c) {
     const k = attKind(get(ATT, r, c));
@@ -531,26 +566,30 @@
       <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
-  function attYearPage(blocks) {
-    const n = nStudents(), full = calTotal();
-    let h = '<tr><th rowspan="2" style="border:1px solid #000;width:26px">ที่</th><th rowspan="2" style="border:1px solid #000;width:180px">ชื่อ - สกุล</th><th colspan="12" style="border:1px solid #000">จำนวนวันที่มาเรียน (ใต้ชื่อเดือน = วันเรียนของเดือน)</th><th rowspan="2" style="border:1px solid #000;width:44px">รวมมา</th><th rowspan="2" style="border:1px solid #000;width:44px">วันเรียน<br>ทั้งปี</th><th rowspan="2" style="border:1px solid #000;width:48px">ร้อยละ</th></tr><tr>';
-    h += MONTHS.map((nm, m) => `<th style="border:1px solid #000;font-weight:400;font-size:12px;width:34px">${esc(nm.slice(0, 3))}.<br>${calCount(m)}</th>`).join('') + '</tr>';
+  // หน้าสรุปเวลาเรียนรายห้อง: term = 1 | 2 | 'sum'
+  function attSummaryPage(term) {
+    const n = nStudents(), ms = monthsOf(term).filter(m => calCount(m));
+    const th = (x, w) => `<th rowspan="2" style="border:1px solid #000;width:${w}px">${x}</th>`;
+    let h = `<tr>${th('ที่', 26)}${th('ชื่อ - สกุล', 180)}<th colspan="${ms.length}" style="border:1px solid #000">จำนวนวันที่มาเรียน (ใต้ชื่อเดือน = วันเรียนของเดือน)</th>${th('รวมมา', 40)}${th('ป่วย', 34)}${th('ลา', 34)}${th('ขาด', 34)}${th('วันเรียน<br>ที่เช็ค', 42)}${th('ร้อยละ', 46)}</tr><tr>`;
+    h += ms.map(m => `<th style="border:1px solid #000;font-weight:400;font-size:12px;width:34px">${esc(shortMon(m))}<br>${calCount(m)}</th>`).join('') + '</tr>';
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
-      const r = 5 + i; let tot = 0; rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (let m = 0; m < 12; m++) { const v = get(ATT, r, blocks[m].sum), x = typeof v === 'number' ? v : 0; tot += x; rows += pcell(calCount(m) ? (x || '') : ''); }
-      rows += pcell(tot || '') + pcell(full) + pcell(full ? (tot * 100 / full).toFixed(2) : '') + '</tr>';
+      const st = classStat(i, term);
+      rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>${ms.map(m => pcell(st.per[m] || '')).join('')}${[st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('')}${pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '')}</tr>`;
     }
-    const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนตลอดปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
+    const planned = ms.reduce((t, m) => t + calCount(m), 0);
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียน ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<div style="margin:0 0 4px">จำนวนวันเรียนตามปฏิทิน <b>${planned}</b> วัน · ร้อยละ = วันที่มา ÷ วันที่เช็คแล้ว · เกณฑ์ไม่น้อยกว่าร้อยละ ${PCT_MIN}</div>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
       <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   function attPages(months) {
     if (!calTotal()) { A().toast('ยังไม่ได้สร้างปฏิทินวันเรียน', 'warn'); return []; }
     const blocks = attBlocks(); if (blocks.length < 12) return [];
+    if (isTermKey(months)) return [attSummaryPage(TERM_KEY[months])];
     const list = months === 'all' ? MONTHS.map((_, i) => i).filter(i => calCount(i)) : [months];
     const pages = list.map(m => attMonthPage(m, blocks));
-    if (months === 'all') pages.push(attYearPage(blocks));
+    if (months === 'all') pages.push(attSummaryPage(1), attSummaryPage(2), attSummaryPage('sum'));
     return pages;
   }
   const customPages = (name) => (name === ATT ? attPages('all') : null);
@@ -660,9 +699,10 @@
     const info = '<div class="card soft"><b>ดึงจากเวลาเรียนรายห้องอัตโนมัติ</b><p class="hint" style="margin:.3rem 0 0">ครูประจำชั้นเช็คชื่อทุกวันที่ “เวลาเรียนรายห้อง” — ถ้านักเรียนมาในวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น · <b>ครูประจำวิชาแก้เฉพาะวิชาของตนได้</b> ถ้านักเรียนเรียนไม่เต็มวัน (เช่น ออกก่อนคาบนี้) โดยแตะช่อง: ตามรายห้อง → ข → ป → ล → 1 → 2 (เลข = จำนวนคาบที่ได้เรียนวันนั้น) → กลับตามรายห้อง ช่องที่แก้จะมีเส้นประล้อมรอบ · ตัวเลขในช่อง = จำนวนคาบที่เรียน (วิชาที่สอน 2 คาบต่อวัน มาครบแสดง 2)</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tsub" data-k="att">ไปเช็คชื่อรายห้อง</button></div></div>';
     if (!weekPeriods(slot)) return pick + info + `<div class="card empty"><b>วิชานี้ยังไม่ได้ตั้งตารางสอน</b>กรอกจำนวนคาบต่อวันก่อน<br><br><button class="btn primary" data-act="tsub" data-k="sched">ไปตั้งตารางสอน</button></div>`;
     const all = sessionsOf(slot, 'sum', true), months = MONTHS.map((_, m) => m).filter(m => all.some(s => s.m === m));
-    let m = U.amonth; if (m === undefined || !months.includes(m)) m = months[0]; U.amonth = m;
+    let m = U.amonth; if (!isTermKey(m) && (m === undefined || !months.includes(m))) m = months[0]; U.amonth = m;
+    const mseg = `<div class="seg" role="tablist">${months.map(i => `<button role="tab" data-act="amonth" data-k="${i}" class="${i === m ? 'on' : ''}">${esc(MONTHS[i].length > 7 ? MONTHS[i].slice(0, 5) + '.' : MONTHS[i])}</button>`).join('')}${termBtns('amonth', m)}</div>`;
+    if (isTermKey(m)) return pick + info + `<div class="bar">${mseg}</div>` + vSubjSummary(slot, TERM_KEY[m], list[idx].name);
     const days = all.filter(s => s.m === m);
-    const mseg = `<div class="seg" role="tablist">${months.map(i => `<button role="tab" data-act="amonth" data-k="${i}" class="${i === m ? 'on' : ''}">${esc(MONTHS[i].length > 7 ? MONTHS[i].slice(0, 5) + '.' : MONTHS[i])}</button>`).join('')}</div>`;
     let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>';
     for (const s of days) th += `<th class="dh${s.off ? ' off' : ''}" data-act="aoff" data-k="${s.k}" title="${s.off ? 'วันนี้ปิดไว้ (ไม่มีสอน) — กดเพื่อเปิด' : 'กดเพื่อปิดวันนี้ (ไม่มีสอนวิชานี้)'}">${s.d}<br><small>${esc(DOW[dow(m, s.d)])}${s.per > 1 ? ' ' + s.per + 'ค' : ''}</small></th>`;
     th += '<th class="ro">มา</th><th class="ro">ป</th><th class="ro">ล</th><th class="ro">ข</th><th class="ro">% สะสม</th>';
@@ -683,7 +723,21 @@
     return pick + info + `<div class="bar">${mseg}</div>
       <div class="card soft"><b>${esc(list[idx].name)}</b> · ${MONTHS[m]} ${monthBE(m)} · มีสอน ${dayN} วัน <span class="hint">· กดวันที่ที่หัวตารางเพื่อปิดวันที่ไม่มีสอนวิชานี้ (เช่น ครูติดราชการ) วันที่ปิดจะไม่นับคาบ</span> <button class="btn sm" data-act="aovclear" style="margin-left:8px">ล้างที่แก้เฉพาะวิชา (เดือนนี้)</button></div>
       <div class="tw"><table class="t sheet att"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
-      <div class="card row sp" style="margin-top:12px"><span class="hint">พิมพ์เป็นแบบฟอร์มรายเดือนของวิชานี้ และหน้าสรุปทั้งปี · เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN}</span><span class="row"><button class="btn" data-act="aprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="aprintall">พิมพ์ทุกเดือน + สรุปทั้งปี</button></span></div>`;
+      <div class="card row sp" style="margin-top:12px"><span class="hint">พิมพ์เป็นแบบฟอร์มรายเดือนของวิชานี้ และหน้าสรุปทั้งปี · เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN}</span><span class="row"><button class="btn" data-act="aprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="aprintall">พิมพ์ทุกเดือน + สรุปเทอม 1/2/รวม</button></span></div>`;
+  }
+  // ตารางสรุปรายวิชาบนหน้าจอ: คอลัมน์ = เดือนในภาคเรียน (หรือเทอม 1 / เทอม 2 เมื่อรวมทั้งปี) หน่วย = คาบ
+  function vSubjSummary(slot, term, name) {
+    const n = nStudents(), low = (p) => p !== null && p < PCT_MIN;
+    const cols = term === 'sum' ? [[1, 'เทอม 1'], [2, 'เทอม 2']] : monthsOf(term).filter(m => sessionsOf(slot, 'sum').some(s => s.m === m)).map(m => [m, shortMon(m)]);
+    const presOf = (i, c) => term === 'sum' ? attStat(slot, i, c).present : sessionsOf(slot, 'sum').filter(s => s.m === c).reduce((t, s) => { const a = dayAmt(s, i, slot); return t + (a ? a.pres : 0); }, 0);
+    let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>' + cols.map(([, t]) => `<th>${esc(t)}<br><small>มา (คาบ)</small></th>`).join('') + '<th>รวมมา</th><th>ป่วย</th><th>ลา</th><th>ขาด</th><th>คาบที่เช็ค<br><small>จากตามตาราง</small></th><th>ร้อยละ</th>', body = '';
+    for (let i = 0; i < n; i++) {
+      const st = attStat(slot, i, term);
+      body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>` + cols.map(([c]) => `<td class="num">${presOf(i, c) || '-'}</td>`).join('')
+        + `<td class="num"><b>${st.present || '-'}</b></td><td class="num">${st.sick || '-'}</td><td class="num">${st.leave || '-'}</td><td class="num">${st.absent || '-'}</td><td class="num">${st.checked}/${st.plan}</td><td class="num${low(st.pct) ? ' warnc' : ''}"><b>${fmtPct(st.pct)}</b></td></tr>`;
+    }
+    return `<div class="card soft row sp"><span><b>${esc(name)} · สรุป ${termLabel(term)}</b> <span class="hint">ดูอย่างเดียว · หน่วยเป็นคาบ · ร้อยละ = คาบที่มา ÷ คาบที่เช็คแล้ว</span></span><span class="row"><button class="btn primary" data-act="aprint">พิมพ์สรุปนี้</button><button class="btn" data-act="aprintall">พิมพ์ทุกเดือน + สรุปทั้ง 3</button></span></div>
+      <div class="tw"><table class="t sheet p5t"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function subjOff(slot, k) {
     const a = subjAtt(slot), j = a.off.indexOf(k); if (j >= 0) a.off.splice(j, 1); else a.off.push(k);
@@ -714,18 +768,19 @@
       <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
-  function sYearPage(slot) {
-    const n = nStudents(); const ms = MONTHS.map((_, m) => m).filter(m => sessionsOf(slot, 'sum').some(s => s.m === m));
+  function sYearPage(slot, term) {
+    term = term || 'sum';
+    const n = nStudents(); const ms = MONTHS.map((_, m) => m).filter(m => inTerm(m, term) && sessionsOf(slot, 'sum').some(s => s.m === m));
     const perM = (m) => sessionsOf(slot, 'sum').filter(s => s.m === m).reduce((t, s) => t + s.per, 0);
     let h = `<tr><th rowspan="2" style="border:1px solid #000;width:26px">ที่</th><th rowspan="2" style="border:1px solid #000;width:180px">ชื่อ - สกุล</th><th colspan="${ms.length}" style="border:1px solid #000">คาบที่มาเรียน (ใต้ชื่อเดือน = คาบเรียนของเดือน)</th>${['มา', 'ป', 'ล', 'ข', 'คาบที่เช็ค', '%'].map(x => `<th rowspan="2" style="border:1px solid #000;width:36px">${x}</th>`).join('')}</tr><tr>`;
     h += ms.map(m => `<th style="border:1px solid #000;font-weight:400;font-size:12px;width:34px">${esc(MONTHS[m].slice(0, 3))}.<br>${perM(m)}</th>`).join('') + '</tr>';
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
-      const st = attStat(slot, i, 'sum'); rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
+      const st = attStat(slot, i, term); rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
       for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) { const a = dayAmt(s, i, slot); if (a) x += a.pres; } rows += pcell(x || ''); }
       rows += [st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('') + pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '') + '</tr>';
     }
-    const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
       <div style="margin-top:6px;font-size:14px">เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN} ของเวลาเรียนรายวิชา</div>
       <div style="display:flex;justify-content:space-around;margin-top:22px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
@@ -733,8 +788,9 @@
   function sPages(slot, month) {
     if (!weekPeriods(slot) || !calTotal()) { A().toast('ยังไม่ได้ตั้งตารางสอนหรือปฏิทิน', 'warn'); return []; }
     const ms = MONTHS.map((_, m) => m).filter(m => sessionsOf(slot, 'sum', true).some(s => s.m === m));
+    if (isTermKey(month)) return [sYearPage(slot, TERM_KEY[month])];
     if (month !== 'all') return [sMonthPage(slot, month)];
-    return [...ms.map(m => sMonthPage(slot, m)), sYearPage(slot)];
+    return [...ms.map(m => sMonthPage(slot, m)), sYearPage(slot, 1), sYearPage(slot, 2), sYearPage(slot, 'sum')];
   }
   // ปพ.5 รายชั้น: เวลาเรียนร้อยละของนักเรียนทุกคนทุกวิชา
   function classAttPage(term) {
