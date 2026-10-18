@@ -5,7 +5,6 @@ window.PP_CONFIG = {
   SUPABASE_ANON_KEY: '',
   BUILD: '1',
   GRADES_READY: [1, 2, 3, 4, 5, 6],
-  TEMPLATE_URL: '../data/template.json',
   SAMPLE_DIR: 'sample',
   DEMO_SCHOOL: 'โรงเรียนสาธิตตัวอย่าง (เว็บทดลอง)',
   WATERMARK: 'ตัวอย่าง · ห้ามใช้งานจริง',
