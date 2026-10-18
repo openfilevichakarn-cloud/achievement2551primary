@@ -18,6 +18,9 @@ SCRUB = {'ข้อมูลพื้นฐาน': ['C2', 'C3', 'C4', 'C5', 'C6
 CLEAR = {'รายวิชา': ['B6', 'C6', 'D6', 'E6', 'F6']}
 
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import patch_activity
+
 def colnum(c):
     n = 0
     for ch in c: n = n * 26 + ord(ch) - 64
@@ -117,6 +120,7 @@ def main():
         if re.match(r'^(คุณลักษณะ|ค่านิยม) ', s['name']):   # ค่าตัวอย่างของนักเรียนคนแรก ๆ (แถวข้อมูลตั้งแต่ 5)
             for k, c in s['cells'].items():
                 if c.get('u') and 'f' not in c and 'v' in c and int(re.sub(r'\D', '', k)) >= 5: c.pop('v')
+        if s['name'] == 'กิจกรรม รวม': patch_activity.patch(s)
         if s['name'].startswith('กิจกรรม '):
             for c in s['cells'].values():
                 if c.get('u') and c.get('v') == '/': c.pop('v')

@@ -969,7 +969,7 @@
   const assessSheet = () => AS[U.akind].base + ' ' + (U.aterm === 'sum' ? 'รวม' : U.aterm);
   function vAssess() {
     const n = nStudents();
-    const head = `<div class="bar">${seg([['trait', 'คุณลักษณะ'], ['value', 'ค่านิยม · สมรรถนะ'], ['act', 'กิจกรรมพัฒนาผู้เรียน']], U.akind, 'akind')}${seg([[1, 'เทอม 1'], [2, 'เทอม 2'], ['sum', 'ทั้งปี']], U.aterm, 'aterm')}</div>`;
+    const head = `<div class="bar">${seg([['trait', 'คุณลักษณะ'], ['value', 'ค่านิยม · สมรรถนะ'], ['act', 'กิจกรรมพัฒนาผู้เรียน']], U.akind, 'akind')}${seg([[1, 'เทอม 1'], [2, 'เทอม 2'], ['sum', 'ทั้งปี']], U.aterm, 'aterm')}<span class="grow"></span><button class="btn primary" data-act="print-doc" data-name="${esc(assessSheet())}">พิมพ์${esc(AS[U.akind].title)}</button></div>`;
     if (!n) return head + '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่แท็บ “ข้อมูล › นักเรียน” ก่อน</div>';
     const edit = U.aterm !== 'sum', sh = assessSheet();
     if (U.akind === 'act') return head + vActivities(n, sh, edit);
@@ -1026,7 +1026,7 @@
       body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>${btn(r, 0)}${btn(r, 1)}${edit ? gcell(sh, r, 7, 'text', i, 0, { ph: 'ชื่อชุมนุม' }) : `<td>${esc(txt(sh, r, 7))}</td>`}${btn(r, 2)}${btn(r, 3)}</tr>`;
     }
     const tools = edit ? `<div class="bar"><span class="hint">ตั้งทั้งห้อง:</span><button class="btn sm" data-act="setall" data-k="1">ผ่านทุกกิจกรรม</button><button class="btn sm danger" data-act="setall" data-k="-1">ล้างทั้งหมด</button></div>` : '';
-    return `<p class="hint">แตะช่องเพื่อสลับ ว่าง → ผ่าน → ไม่ผ่าน → ว่าง</p>${tools}<div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th><th>${esc(txt(sh, 2, 3) || 'แนะแนว')}</th><th>${esc(txt(sh, 2, 5) || 'ลูกเสือ-เนตรนารี')}</th><th>ชื่อชุมนุม</th><th>${esc(txt(sh, 2, 7) || 'ชุมนุม')}</th><th>${esc((txt(sh, 2, 10) || 'กิจกรรมเพื่อสังคมฯ').replace(/\n/g, ' '))}</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    return `<p class="hint">${edit ? 'แตะช่องเพื่อสลับ ว่าง → ผ่าน → ไม่ผ่าน → ว่าง' : 'ทั้งปีคำนวณจากเทอม 1 และ 2 · ผ่านเมื่อผ่านทั้งสองภาคเรียน · ดูอย่างเดียว'}</p>${tools}<div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th><th>${esc(txt(sh, 2, 3) || 'แนะแนว')}</th><th>${esc(txt(sh, 2, 5) || 'ลูกเสือ-เนตรนารี')}</th><th>ชื่อชุมนุม</th><th>${esc(txt(sh, 2, 7) || 'ชุมนุม')}</th><th>${esc((txt(sh, 2, 10) || 'กิจกรรมเพื่อสังคมฯ').replace(/\n/g, ' '))}</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
   // ---------------------------------------------------------------- รายงาน ปพ.5 (สรุปผลรายห้อง)
