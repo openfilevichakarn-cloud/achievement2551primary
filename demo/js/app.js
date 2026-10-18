@@ -530,11 +530,13 @@
     const list = roster(); if (!list.length) { toast('ยังไม่มีรายชื่อนักเรียน', 'warn'); return; }
     const pos = NO_CELL(name), prev = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
     const blocks = [];
-    try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...pagesFor(name)); } }
+    try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...docPages(name)); } }
     finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, prev); }
     showPreview(blocks);
   }
-  function printSheets(names) { showPreview(names.flatMap(n => (window.PPUI && PPUI.customPages && PPUI.customPages(n)) || pagesFor(n))); }
+  // หน้าพิมพ์ของชีท: ชีทที่มีหน้าเสริม (เช่น เวลาเรียนรายวิชาต่อท้าย ปพ.5/ปพ.6) ให้ ui.js ประกอบให้
+  const docPages = (n) => (window.PPUI && PPUI.customPages && PPUI.customPages(n)) || pagesFor(n);
+  function printSheets(names) { showPreview(names.flatMap(docPages)); }
 
   function showPreview(blocks) {
     if (!blocks.length) return;

@@ -592,7 +592,17 @@
     if (months === 'all') pages.push(attSummaryPage(1), attSummaryPage(2), attSummaryPage('sum'));
     return pages;
   }
-  const customPages = (name) => (name === ATT ? attPages('all') : null);
+  // หน้าพิมพ์ที่ประกอบพิเศษ: เวลาเรียนรายวิชาต่อท้ายเอกสาร ปพ.5 / ปพ.6 ทุกครั้งที่พิมพ์ (ถ้าตั้งตารางสอนแล้ว)
+  const hasSched = () => calTotal() > 0 && subjects().some(x => weekPeriods(x.slot));
+  const termOfName = (n) => (/รวม$/.test(n) ? 'sum' : /เทอม ?2$|\b2$/.test(n) ? 2 : 1);
+  function customPages(name) {
+    if (name === ATT) return attPages('all');
+    if (!hasSched()) return null;
+    if (/^ปพ\.6 (เทอม [12]|รวม)$/.test(name)) { const i = Math.max(0, (num(name, 8, 11) || 1) - 1); return [...A().pagesFor(name), studentAttPage(i, termOfName(name))]; }
+    if (/^ปก ปพ\.5 รายชั้น (1|2|รวม)$/.test(name)) return [...A().pagesFor(name), classAttPage(termOfName(name))];
+    if (/^ปก ปพ\.5 รายวิชา (1|2|รวม)$/.test(name)) { const slot = num(name, 1, 'EM'); return weekPeriods(slot) ? [...A().pagesFor(name), sYearPage(slot, termOfName(name))] : null; }
+    return null;
+  }
 
   // ---------------------------------------------------------------- เวลาเรียนรายวิชา (แต่ละวิชาสอนคนละวัน/คนละจำนวนคาบ)
   // ไม่ต้องเช็คชื่อซ้ำ: ดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) — ถ้ามาเรียนวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น
