@@ -182,6 +182,8 @@
       case 'asub-step': { const list = subjects().filter(x => true); const i = list.findIndex(x => x.slot === U.asub); const nx = list[i + (+k)]; if (nx) set({ asub: nx.slot }); break; }
       case 'amonth': set({ amonth: +k }); break;
       case 'aoff': subjOff(U.asub, k); break;
+      case 'aov': { const i = +b.dataset.i, cur = ovOf(U.asub, k, i), nx = { '': 'ข', 'ข': 'ป', 'ป': 'ล', 'ล': '1', 1: null }[cur === null ? '' : cur]; setOv(U.asub, k, i, nx); refresh(); break; }
+      case 'aovclear': { const a = subjAtt(U.asub); for (const x of sessionsOf(U.asub, 'sum', true).filter(q => q.m === U.amonth)) if (a.ov) delete a.ov[x.k]; A().markDirty(); refresh(); break; }
       case 'aprint': A().showPreview(sPages(U.asub, U.amonth)); break;
       case 'aprintall': A().showPreview(sPages(U.asub, 'all')); break;
       case 'p5att': set({ p5att: k }); break;
@@ -551,8 +553,10 @@
 
   // ---------------------------------------------------------------- เวลาเรียนรายวิชา (แต่ละวิชาสอนคนละวัน/คนละจำนวนคาบ)
   // ไม่ต้องเช็คชื่อซ้ำ: ดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) — ถ้ามาเรียนวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น
-  // ข้อมูลที่เก็บเพิ่ม: doc.att[ลำดับวิชา] = { p: [คาบต่อวัน อา..ส], off: [วันที่ไม่มีสอน 'ปปปปดดวว'] }
-  const EMPTY_ATT = () => ({ p: [0, 0, 0, 0, 0, 0, 0], off: [] });
+  // ครูประจำวิชาแก้เฉพาะวิชาของตนได้ เมื่อนักเรียนเรียนไม่เต็มวัน (เช่น มาสาย/ออกก่อน/ไปกิจกรรม) — แก้ทับเวลาเรียนรายห้องเฉพาะวิชานั้น
+  // ข้อมูลที่เก็บเพิ่ม: doc.att[ลำดับวิชา] = { p: [คาบต่อวัน อา..ส], off: [วันที่ไม่มีสอน 'ปปปปดดวว'], ov: { 'ปปปปดดวว': 'สตริงต่อนักเรียน' } }
+  // ov: ตัวอักษรตำแหน่ง i = นักเรียนคนที่ i+1  - = ตามเวลาเรียนรายห้อง · 1 มา · ข ขาด · ป ป่วย · ล ลา
+  const EMPTY_ATT = () => ({ p: [0, 0, 0, 0, 0, 0, 0], off: [], ov: {} });
   const attAll = () => (A().S.att = A().S.att || {});
   const getAtt = (slot) => attAll()[slot] || EMPTY_ATT();
   const subjAtt = (slot) => (attAll()[slot] = attAll()[slot] || EMPTY_ATT());
@@ -575,16 +579,28 @@
     return out;
   }
   // สถานะของนักเรียนคนที่ i ในวันที่ s จากเวลาเรียนรายห้อง: '1' มา · 'ป' 'ล' 'ข' · null ยังไม่เช็ค
-  function chOf(s, i) {
+  function chOf(s, i, slot) {
+    const o = slot ? ((getAtt(slot).ov || {})[s.k] || '')[i] : null;
+    if (o && o !== '-') return o;                                   // ครูประจำวิชาแก้เฉพาะวิชานี้
+    return homeCh(s, i);
+  }
+  const homeCh = (s, i) => {
     const b = attBlocks()[s.m]; if (!b || s.d > b.days) return null;
     const k = attKind(get(ATT, 5 + i, b.start + s.d - 1));
     return k === 1 ? '1' : k;
+  };
+  const ovOf = (slot, k, i) => { const o = ((getAtt(slot).ov || {})[k] || '')[i]; return o && o !== '-' ? o : null; };
+  function setOv(slot, k, i, ch) {
+    const a = subjAtt(slot); a.ov = a.ov || {};
+    const cur = (a.ov[k] || '').padEnd(MAX_STU, '-').split(''); cur[i] = ch || '-'; const str = cur.join('');
+    if (/^-+$/.test(str)) delete a.ov[k]; else a.ov[k] = str;
+    A().markDirty();
   }
   // สรุปเวลาเรียนของนักเรียนคนที่ i (หน่วย = คาบ) · pct คิดจากคาบที่ครูประจำชั้นเช็คแล้ว
   function attStat(slot, i, term) {
     const r = { plan: 0, checked: 0, present: 0, sick: 0, leave: 0, absent: 0, pct: null };
     for (const s of sessionsOf(slot, term)) {
-      r.plan += s.per; const ch = chOf(s, i);
+      r.plan += s.per; const ch = chOf(s, i, slot);
       if (!ch) continue;
       r.checked += s.per;
       if (ch === '1') r.present += s.per; else if (ch === 'ป') r.sick += s.per; else if (ch === 'ล') r.leave += s.per; else if (ch === 'ข') r.absent += s.per;
@@ -628,7 +644,7 @@
     if (!list.some(s => s.slot === U.asub)) U.asub = list[0].slot;
     const idx = list.findIndex(s => s.slot === U.asub), slot = U.asub;
     const pick = `<div class="pick"><button class="btn" data-act="asub-step" data-k="-1" ${idx <= 0 ? 'disabled' : ''}>‹</button><select data-f="asub" aria-label="เลือกวิชา">${list.map(s => `<option value="${s.slot}"${s.slot === slot ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select><button class="btn" data-act="asub-step" data-k="1" ${idx >= list.length - 1 ? 'disabled' : ''}>›</button></div>`;
-    const info = '<div class="card soft"><b>ดึงจากเวลาเรียนรายห้องอัตโนมัติ</b><p class="hint" style="margin:.3rem 0 0">ครูประจำชั้นเช็คชื่อทุกวันที่ “เวลาเรียนรายห้อง” — ถ้านักเรียนมาในวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงเวลาเรียนซ้ำ · ตารางนี้ดูอย่างเดียว</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tsub" data-k="att">ไปเช็คชื่อรายห้อง</button></div></div>';
+    const info = '<div class="card soft"><b>ดึงจากเวลาเรียนรายห้องอัตโนมัติ</b><p class="hint" style="margin:.3rem 0 0">ครูประจำชั้นเช็คชื่อทุกวันที่ “เวลาเรียนรายห้อง” — ถ้านักเรียนมาในวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น · <b>ครูประจำวิชาแก้เฉพาะวิชาของตนได้</b> ถ้านักเรียนเรียนไม่เต็มวัน (เช่น ออกก่อนคาบนี้) โดยแตะช่อง: ตามรายห้อง → ข → ป → ล → ✓ → กลับตามรายห้อง ช่องที่แก้จะมีเส้นประล้อมรอบ</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tsub" data-k="att">ไปเช็คชื่อรายห้อง</button></div></div>';
     if (!weekPeriods(slot)) return pick + info + `<div class="card empty"><b>วิชานี้ยังไม่ได้ตั้งตารางสอน</b>กรอกจำนวนคาบต่อวันก่อน<br><br><button class="btn primary" data-act="tsub" data-k="sched">ไปตั้งตารางสอน</button></div>`;
     const all = sessionsOf(slot, 'sum', true), months = MONTHS.map((_, m) => m).filter(m => all.some(s => s.m === m));
     let m = U.amonth; if (m === undefined || !months.includes(m)) m = months[0]; U.amonth = m;
@@ -643,15 +659,15 @@
       const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 };
       for (const s of days) {
         if (s.off) { body += '<td class="offc"></td>'; continue; }
-        const ch = chOf(s, i); if (ch) mo[ch === '1' ? 1 : ch] += s.per;
-        body += `<td class="${ch === '1' ? 'okc' : ch ? 'noc' : 'blc'}">${ch === '1' ? '✓' : ch || ''}</td>`;
+        const ch = chOf(s, i, slot), ov = ovOf(slot, s.k, i); if (ch) mo[ch === '1' ? 1 : ch] += s.per;
+        body += `<td class="gtd"><button class="pc att${ch === '1' ? ' ok' : ch ? ' no' : ''}${ov ? ' ovr' : ''}" data-act="aov" data-k="${s.k}" data-i="${i}" title="${ov ? 'แก้เฉพาะวิชานี้ (กดเพื่อเปลี่ยน)' : 'ตามเวลาเรียนรายห้อง — กดเพื่อแก้เฉพาะวิชานี้'}">${ch === '1' ? '✓' : ch || '&nbsp;'}</button></td>`;
       }
       const st = attStat(slot, i, 'sum'), low = st.pct !== null && st.pct < PCT_MIN, c = (x) => `<td class="ro">${x || '-'}</td>`;
       body += c(mo[1]) + c(mo['ป']) + c(mo['ล']) + c(mo['ข']) + `<td class="ro${low ? ' gbad' : ''}">${fmtPct(st.pct)}</td></tr>`;
     }
     const dayN = days.filter(s => !s.off).length;
     return pick + info + `<div class="bar">${mseg}</div>
-      <div class="card soft"><b>${esc(list[idx].name)}</b> · ${MONTHS[m]} ${monthBE(m)} · มีสอน ${dayN} วัน <span class="hint">· กดวันที่ที่หัวตารางเพื่อปิดวันที่ไม่มีสอนวิชานี้ (เช่น ครูติดราชการ) วันที่ปิดจะไม่นับคาบ</span></div>
+      <div class="card soft"><b>${esc(list[idx].name)}</b> · ${MONTHS[m]} ${monthBE(m)} · มีสอน ${dayN} วัน <span class="hint">· กดวันที่ที่หัวตารางเพื่อปิดวันที่ไม่มีสอนวิชานี้ (เช่น ครูติดราชการ) วันที่ปิดจะไม่นับคาบ</span> <button class="btn sm" data-act="aovclear" style="margin-left:8px">ล้างที่แก้เฉพาะวิชา (เดือนนี้)</button></div>
       <div class="tw"><table class="t sheet att"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
       <div class="card row sp" style="margin-top:12px"><span class="hint">พิมพ์เป็นแบบฟอร์มรายเดือนของวิชานี้ และหน้าสรุปทั้งปี · เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN}</span><span class="row"><button class="btn" data-act="aprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="aprintall">พิมพ์ทุกเดือน + สรุปทั้งปี</button></span></div>`;
   }
@@ -672,8 +688,8 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (const s of days) { const v = s.off ? null : chOf(s, i); rows += pcell(v === '1' ? '/' : v || '', s.off ? 'background:#d9d9d9;' : ''); }
-      const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 }; for (const s of days) if (!s.off) { const v = chOf(s, i); if (v) mo[v === '1' ? 1 : v] += s.per; }
+      for (const s of days) { const v = s.off ? null : chOf(s, i, slot); rows += pcell(v === '1' ? '/' : v || '', s.off ? 'background:#d9d9d9;' : ''); }
+      const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 }; for (const s of days) if (!s.off) { const v = chOf(s, i, slot); if (v) mo[v === '1' ? 1 : v] += s.per; }
       const st = attStat(slot, i, 'sum');
       rows += [1, 'ป', 'ล', 'ข'].map(x => pcell(mo[x] || '')).join('') + pcell(st.pct === null ? '' : st.pct.toFixed(1)) + '</tr>';
     }
@@ -692,7 +708,7 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const st = attStat(slot, i, 'sum'); rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) if (chOf(s, i) === '1') x += s.per; rows += pcell(x || ''); }
+      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) if (chOf(s, i, slot) === '1') x += s.per; rows += pcell(x || ''); }
       rows += [st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('') + pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '') + '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
@@ -1008,7 +1024,7 @@
     const S = [
       ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและงาน แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
       ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>ตัวชี้วัดพิมพ์ <b>ผ</b> หรือ <b>มผ</b> (หรือกด <kbd>Space</kbd> สลับ)</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
-      ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
+      ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ แต่แก้เฉพาะวิชาของตนได้เมื่อนักเรียนเรียนไม่เต็มวัน (แตะช่อง) วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],
       ['สำรองข้อมูล', `<p>ข้อมูลเก็บบนระบบอัตโนมัติ ควรกด <b>ข้อมูล › สำรองข้อมูล</b> เพื่อดาวน์โหลดไฟล์เก็บไว้เป็นระยะ</p>`],
     ];

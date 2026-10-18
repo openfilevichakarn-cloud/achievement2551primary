@@ -49,3 +49,4 @@ table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
 table.att td.okc{background:var(--lv3bg);color:var(--lv3);text-align:center;min-width:34px}
 table.att td.noc{background:#fee2e2;color:var(--err);font-weight:700;text-align:center}
 table.att td.blc{background:var(--bg)}
+table.att td .pc.ovr{outline:2px dashed var(--brand);outline-offset:-3px}
