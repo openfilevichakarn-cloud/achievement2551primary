@@ -46,3 +46,6 @@ table.att th.dh.off{background:#d1d5db;color:#6b7280}
 table.att td.offc{background:repeating-linear-gradient(45deg,#e5e7eb,#e5e7eb 4px,#f3f4f6 4px,#f3f4f6 8px)}
 table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
 .tw table th.we{opacity:.65}
+table.att td.okc{background:var(--lv3bg);color:var(--lv3);text-align:center;min-width:34px}
+table.att td.noc{background:#fee2e2;color:var(--err);font-weight:700;text-align:center}
+table.att td.blc{background:var(--bg)}

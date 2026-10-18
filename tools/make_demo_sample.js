@@ -137,23 +137,10 @@ function build(g) {
       set(AT, rc(row, c), x < miss * 0.5 ? 'ป' : x < miss * 0.8 ? 'ล' : x < miss ? 'ข' : 1);
     }
   });
-  // เวลาเรียนรายวิชา: แต่ละวิชาสอนคนละวัน/คนละจำนวนคาบ (อา..ส) · เช็คครบทุกวัน นักเรียนส่วนใหญ่มา
+  // ตารางสอนรายวิชา: แต่ละวิชาสอนคนละวัน/คนละจำนวนคาบ (อา..ส) — เวลาเรียนรายวิชาดึงจากเวลาเรียนรายห้องเอง
   const SCHED = [[0, 1, 1, 1, 1, 1, 0], [0, 1, 1, 1, 1, 1, 0], [0, 1, 0, 1, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0], [0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0], [0, 0, 0, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0, 0]];
   const att = {};
-  subs.forEach((sb, j) => {
-    const p = SCHED[j], marks = {};
-    for (const sd of schoolDays) {
-      if (!p[sd.w]) continue;
-      let str = '';
-      for (let i = 0; i < 45; i++) {
-        if (i >= kids.length) { str += '-'; continue; }
-        const x = r(), miss = 0.07 * (1.35 - kids[i].a);
-        str += x < miss * 0.5 ? 'ป' : x < miss * 0.75 ? 'ล' : x < miss ? 'ข' : '1';
-      }
-      marks[sd.key] = str;
-    }
-    att[sb.slot] = { p, off: [], marks };
-  });
+  subs.forEach((sb, j) => { att[sb.slot] = { p: SCHED[j], off: [] }; });
   return { g, edits, att };
 }
 
