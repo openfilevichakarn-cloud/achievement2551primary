@@ -100,7 +100,7 @@
     await new Promise(r => setTimeout(r, 30));   // ให้หน้าจอวาดข้อความ "กำลังโหลด" ก่อนสร้างเวิร์กบุ๊ก
     S.styles = S.template.styles;
     $('#xl-css').textContent = R.styleCss(S.styles);
-    S.view = { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() };
+    S.view = { rowHidden: {}, colHidden: null, bg: {}, locked: new Set(), logo: S.school.logo || null };
     S.userEdits = {}; S.att = {};
     $('#loading-msg').textContent = 'กำลังโหลดข้อมูลของโรงเรียน...';
     let doc = null;
@@ -360,6 +360,38 @@
     r2 = Math.max(r2, Math.min(sh.def.dim[0], MIN_ROWS[name] || 0));
     return (extent[name] = 'A1:' + P.numToCol(c2) + r2);
   }
+  // ตราโรงเรียนวางมุมซ้ายบนของปก ปพ.5 / ปพ.6 / ใบรับรอง (ไม่ล้ำแถว limitRow)
+  function logoAnchor(name) {
+    if (/^ปก ปพ\.5 /.test(name)) return { r: 2, c: 2, limitRow: 5 };
+    if (/^เล่ม ปพ\.6/.test(name)) return { r: 2, c: 1, limitRow: 7 };
+    if (/^ปพ\.6 /.test(name)) return { r: 1, c: 1, limitRow: 2 };
+    if (name === 'ใบรับรอง') return { r: 1, c: 2, limitRow: 5 };
+    return null;
+  }
+  // ตราเก็บที่เดียวต่อโรงเรียน ใช้กับทุกชั้น ทุกห้อง
+  function loadLogo(file) {
+    if (!file) return;
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 300 / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const logo = cv.toDataURL('image/png'); URL.revokeObjectURL(url);
+      backend.setLogo(S.code, logo).then((res) => {
+        if (res && res.ok === false) throw new Error(res.error);
+        S.school.logo = S.view.logo = logo; if (window.PPUI) PPUI.refresh(); toast('ใส่ตราโรงเรียนแล้ว (ใช้กับทุกชั้น ทุกห้อง)', 'ok');
+      }).catch((e) => toast('บันทึกตราไม่สำเร็จ: ' + (e.message || ''), 'warn'));
+    };
+    img.onerror = () => toast('อ่านไฟล์รูปไม่ได้', 'warn');
+    img.src = url;
+  }
+  async function removeLogo() {
+    const yes = await modal('ตราโรงเรียน', '<p>ต้องการลบตราโรงเรียนออกจากทุกเอกสารใช่หรือไม่</p>', [{ label: 'ยกเลิก', value: false }, { label: 'ลบตรา', value: true, primary: true }]);
+    if (!yes) return;
+    try { const res = await backend.setLogo(S.code, null); if (res && res.ok === false) throw new Error(res.error); }
+    catch (e) { toast('ลบตราไม่สำเร็จ: ' + (e.message || ''), 'warn'); return; }
+    S.school.logo = S.view.logo = null; if (window.PPUI) PPUI.refresh();
+  }
   function canEdit(name, r, c, cell) {
     if (cell && cell.f) return false;
     if (name === 'ข้อมูลนักเรียน') return r >= 3 && c <= 90;
@@ -375,7 +407,7 @@
   function closeDoc() { endEdit(false); $('#docviewer').hidden = true; document.body.classList.remove('docopen'); if (window.PPUI) PPUI.refresh(); }
   function sheetHtmlFor(name, edit, area, viewOv) {
     if (window.PPUI && PPUI.beforeSheet) PPUI.beforeSheet(name);
-    return R.sheetHtml({ wb: S.wb, sheetName: name, view: viewOv ? { ...S.view, ...viewOv } : S.view, edit, area, styles: S.styles, canEdit });
+    return R.sheetHtml({ wb: S.wb, sheetName: name, view: viewOv ? { ...S.view, ...viewOv } : S.view, edit, area, styles: S.styles, canEdit, logo: S.view.logo, logoAt: logoAnchor });
   }
   function renderSheet(keep) {
     const sc = $('#sheet-scroll'), top = sc.scrollTop, left = sc.scrollLeft;
@@ -607,6 +639,7 @@
     }
     $('#login-form').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#login-code').value, $('#login-remember').checked); });
     $('#logout').onclick = logout;
+    $('#logo-file').addEventListener('change', (e) => { loadLogo(e.target.files[0]); e.target.value = ''; });
     $('#save-now').onclick = () => save(true);
     $('#doc-close').onclick = closeDoc;
     $('#open-docs').onclick = () => { if (window.PPUI) PPUI.go('docs'); };
@@ -621,6 +654,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem,
+    printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo,
   };
 })();

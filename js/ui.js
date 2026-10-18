@@ -176,6 +176,8 @@
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
       case 'doc': A().openSheet(b.dataset.name); break;
       case 'print-doc': A().printSheets([b.dataset.name]); break;
+      case 'logo': A().pickLogo(); break;
+      case 'logo-del': A().removeLogo(); break;
       case 'cyc': cycle(b); break;
       case 'aedit': set({ aedit: !U.aedit }); break;
       case 'aadd': itemAdd(+b.dataset.g); break;
@@ -267,7 +269,7 @@
     const S = A().S, n = nStudents(), ns = subjCount(), sp = scoreProgress(), ap = assessProgress();
     const info = !ph(get(INFO, 9, 2)) && get(INFO, 9, 2) !== null && !ph(get(INFO, 13, 2)) && get(INFO, 13, 2) !== null;
     const step = (no, done, title, sub, tab, subk, prog) => `<button class="step${done ? ' done' : ''}" data-act="go" data-tab="${tab}"${subk ? ` data-sub="${subk}"` : ''}><span class="no">${done ? '✓' : no}</span><span style="flex:1;min-width:0"><b>${title}</b><small>${sub}</small>${prog !== undefined ? `<div class="prog"><i style="width:${prog}%"></i></div>` : ''}</span><span class="go">›</span></button>`;
-    return `<div class="card hello"><div><h2>${esc(S.school.name)} 🔒</h2><p>${esc(txt(SUBJ, 2, 2))} · ปีการศึกษา ${esc(txt(SUBJ, 4, 2))}</p></div></div>
+    return `<div class="card hello">${A().S.view.logo ? `<img class="logo" src="${A().S.view.logo}" alt="ตราโรงเรียน">` : ''}<div><h2>${esc(S.school.name)} 🔒</h2><p>${esc(txt(SUBJ, 2, 2))} · ปีการศึกษา ${esc(txt(SUBJ, 4, 2))}</p></div></div>
       <div class="stat"><div><b>${n}</b><span>นักเรียน</span></div><div><b>${ns}</b><span>รายวิชา</span></div><div><b>${sp}%</b><span>คะแนนกรอกแล้ว</span></div></div>
       <div class="steps">
         ${step(1, info, 'ตั้งค่าโรงเรียน', info ? 'กรอกชื่อผู้อำนวยการและครูประจำชั้นแล้ว' : 'กรอกชื่อ ผอ. ครูประจำชั้น และปีการศึกษา', 'data', 'school')}
@@ -299,7 +301,11 @@
       ${formInput(INFO, 9, 2, 'ชื่อ-สกุล ผู้อำนวยการ')}${formInput(INFO, 10, 2, 'ตำแหน่งผู้อำนวยการ / รักษาการ')}
       ${formInput(INFO, 11, 2, 'ชื่อ-สกุล นายทะเบียน')}${formInput(INFO, 12, 2, 'ชื่อ-สกุล หัวหน้างานวิชาการ')}
       ${formInput(INFO, 13, 2, 'ชื่อ-สกุล ครูประจำชั้น / ครูที่ปรึกษา')}
-    </div><p class="hint">ข้อมูลนี้เก็บแยกตามห้อง ถ้าโรงเรียนมีหลายห้องต้องกรอกในแต่ละห้อง</p></div>`;
+    </div><p class="hint">ข้อมูลนี้เก็บแยกตามห้อง ถ้าโรงเรียนมีหลายห้องต้องกรอกในแต่ละห้อง</p></div>
+    <div class="card"><h3>ตราโรงเรียน</h3>
+      <div class="row">${S.view.logo ? `<img src="${S.view.logo}" alt="ตราโรงเรียน" style="height:84px;width:84px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:12px">` : '<span class="hint">ยังไม่ได้ใส่ตรา</span>'}
+        <button class="btn primary" data-act="logo">เลือกรูปตรา</button>${S.view.logo ? '<button class="btn danger" data-act="logo-del">ลบตรา</button>' : ''}</div>
+      <p class="hint">ตราจะแสดงที่มุมซ้ายบนของปก ปพ.5 ปพ.6 และใบรับรอง ใช้ร่วมกันทุกชั้นทุกห้อง (ไฟล์ PNG/JPG)</p></div>`;
   }
   const PREFIX = ['เด็กชาย', 'เด็กหญิง', 'นาย', 'นางสาว', 'นาง'];
   // เพศ (คอลัมน์ G) ใช้นับชาย/หญิงในปก ปพ.5 — เดาจากคำนำหน้า/ต้นชื่อ เมื่อยังไม่ได้กรอก
