@@ -73,12 +73,10 @@ function build(g) {
   for (const s of subs) {
     const sh = 'วิชาที่ ' + s.slot, off = (r() - 0.5) * 0.14;
     TERM.forEach((t, ti) => {
-      for (let j = 0; j < 6; j++) set(sh, rc(5, t.ind + j), 'ตัวชี้วัดที่ ' + (j + 1));
-      for (let j = 0; j < 4; j++) { set(sh, rc(5, t.work + j), 'งานที่ ' + (j + 1)); set(sh, rc(6, t.work + j), 10); }
+      for (let j = 0; j < 4; j++) { set(sh, rc(5, t.work + j), 'ตัวชี้วัดที่ ' + (j + 1)); set(sh, rc(6, t.work + j), 10); }
       set(sh, rc(5, t.exam), 'สอบปลายภาค');
       kids.forEach((k, i) => {
         const row = 7 + i, lv = k.a + off + ti * 0.02;
-        for (let j = 0; j < 6; j++) set(sh, rc(row, t.ind + j), lv + (r() - 0.5) * 0.3 < 0.5 ? 'มผ' : 'ผ');
         for (let j = 0; j < 4; j++) set(sh, rc(row, t.work + j), Math.round(10 * Math.min(1, Math.max(0.3, lv + (r() - 0.5) * 0.2))));
         set(sh, rc(row, t.exam), Math.round(30 * Math.min(1, Math.max(0.3, lv + (r() - 0.5) * 0.18))));
       });

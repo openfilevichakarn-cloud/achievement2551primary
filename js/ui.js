@@ -173,8 +173,6 @@
       case 'cyc': cycle(b); break;
       case 'setall': setAllLevels(+k); break;
       case 'act': toggleActivity(b); break;
-      case 'ind-add': indAdd(1); break;
-      case 'ind-del': indAdd(-1); break;
       case 'work-add': workAdd(1); break;
       case 'work-del': workAdd(-1); break;
       case 'stupre': { const cur = U.stuPrefix === undefined ? (() => { for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) return true; return false; })() : U.stuPrefix; set({ stuPrefix: !cur }); break; }
@@ -266,7 +264,7 @@
         ${step(1, info, 'ตั้งค่าโรงเรียน', info ? 'กรอกชื่อผู้อำนวยการและครูประจำชั้นแล้ว' : 'กรอกชื่อ ผอ. ครูประจำชั้น และปีการศึกษา', 'data', 'school')}
         ${step(2, n > 0, 'รายชื่อนักเรียน', n ? n + ' คน' : 'กรอกหรือวางรายชื่อจาก Excel', 'data', 'students')}
         ${step(3, ns > 0, 'รายวิชา', ns ? ns + ' วิชา' : 'เพิ่มรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน', 'data', 'subjects')}
-        ${step(4, sp >= 100, 'บันทึกคะแนน', 'เลือกวิชาแล้วกรอกตัวชี้วัด คะแนนระหว่างเรียน และคะแนนสอบ ทีละภาคเรียน', 'scores', '', sp)}
+        ${step(4, sp >= 100, 'บันทึกคะแนน', 'เลือกวิชาแล้วกรอกคะแนนตัวชี้วัดและคะแนนสอบ ทีละภาคเรียน', 'scores', '', sp)}
         ${step(5, ap >= 100, 'ประเมินคุณลักษณะ ค่านิยม และกิจกรรม', 'แตะช่องเพื่อเลือกระดับ / ผ่าน / ไม่ผ่าน', 'assess', '', ap)}
         ${step(6, false, 'รายงาน ปพ.5 และ ปพ.6', 'ดูสรุปผลรายห้อง รายบุคคล และพิมพ์', 'report6')}
       </div>`;
@@ -869,7 +867,7 @@
   }
 
   // ---------------------------------------------------------------- คะแนนรายวิชา
-  // ผังชีท "วิชาที่ N": ตัวชี้วัด ผ/มผ · คะแนนระหว่างเรียน (แถว 5 = ชื่อ แถว 6 = คะแนนเต็ม) · สอบปลายภาค · ผลลัพธ์
+  // ผังชีท "วิชาที่ N": ตัวชี้วัด = ช่องคะแนนระหว่างเรียน (แถว 5 = ชื่อ แถว 6 = คะแนนเต็ม) · สอบปลายภาค · ผลลัพธ์
   const SC = {
     1: { ind: [C('C'), C('AK')], work: [C('CA'), C('CY')], exam: C('DA'), btw: C('CZ'), total: C('DB'), pct: C('DC'), grade: C('DD') },
     2: { ind: [C('AO'), C('BW')], work: [C('DE'), C('EB')], exam: C('EE'), btw: C('ED'), total: C('EF'), pct: C('EG'), grade: C('EH') },
@@ -878,26 +876,19 @@
   function scCfg() {
     const T = SC[U.term]; if (!T) return null;
     const sh = 'วิชาที่ ' + U.subj;
-    let ni = 0, nw = 0;
-    for (let c = T.ind[0]; c <= T.ind[1]; c++) if (txt(sh, SC_NAME, c).trim()) ni = c - T.ind[0] + 1;
+    let nw = 0;   // จำนวนตัวชี้วัด (ช่องคะแนนระหว่างเรียน) ที่กำหนดคะแนนเต็มแล้ว
     for (let c = T.work[0]; c <= T.work[1]; c++) if ((num(sh, SC_MAX, c) || 0) > 0) nw = c - T.work[0] + 1;
-    return { sh, T, ni, nw };
-  }
-  function indAdd(d) {
-    const k = scCfg(); if (!k) return; const max = k.T.ind[1] - k.T.ind[0] + 1;
-    if (d > 0 && k.ni < max) setv(k.sh, SC_NAME, k.T.ind[0] + k.ni, 'ตัวชี้วัดที่ ' + (k.ni + 1));
-    else if (d < 0 && k.ni > 0) setv(k.sh, SC_NAME, k.T.ind[0] + k.ni - 1, null);
-    refresh();
+    return { sh, T, nw };
   }
   function workAdd(d) {
     const k = scCfg(); if (!k) return; const max = k.T.work[1] - k.T.work[0] + 1;
-    if (d > 0 && k.nw < max) { const c = k.T.work[0] + k.nw; setv(k.sh, SC_NAME, c, 'งานที่ ' + (k.nw + 1)); setv(k.sh, SC_MAX, c, 10); }
+    if (d > 0 && k.nw < max) { const c = k.T.work[0] + k.nw; setv(k.sh, SC_NAME, c, 'ตัวชี้วัดที่ ' + (k.nw + 1)); setv(k.sh, SC_MAX, c, 10); }
     else if (d < 0 && k.nw > 0) { const c = k.T.work[0] + k.nw - 1; setv(k.sh, SC_NAME, c, null); setv(k.sh, SC_MAX, c, null); }
     refresh();
   }
   async function clearScores() {
     const k = scCfg(); if (!k) return;
-    const yes = await A().modal('ล้างคะแนนภาคเรียนนี้', `<p>ล้างตัวชี้วัด คะแนนระหว่างเรียน และคะแนนสอบของ <b>${esc(txt(SUBJ, 5 + U.subj, 3))}</b> ภาคเรียนที่ ${U.term} ของนักเรียนทุกคน ย้อนกลับไม่ได้</p>`, [{ label: 'ยกเลิก', value: false }, { label: 'ล้างคะแนน', value: true, primary: true }]);
+    const yes = await A().modal('ล้างคะแนนภาคเรียนนี้', `<p>ล้างคะแนนตัวชี้วัดและคะแนนสอบของ <b>${esc(txt(SUBJ, 5 + U.subj, 3))}</b> ภาคเรียนที่ ${U.term} ของนักเรียนทุกคน ย้อนกลับไม่ได้</p>`, [{ label: 'ยกเลิก', value: false }, { label: 'ล้างคะแนน', value: true, primary: true }]);
     if (!yes) return;
     for (let i = 0; i < MAX_STU; i++) {
       const r = IND_ROW + i;
@@ -921,32 +912,27 @@
   }
   function vScoreTerm(n) {
     const k = scCfg(), { sh, T } = k, ratio = [num(sh, 3, 'DA'), num(sh, 3, 'DC')];
-    const indIn = Array.from({ length: k.ni }, (_, j) => `<label class="fld"><span>ตัวชี้วัดที่ ${j + 1}</span><input ${bindF(sh, SC_NAME, T.ind[0] + j)} value="${esc(txt(sh, SC_NAME, T.ind[0] + j))}"></label>`).join('');
-    const workIn = Array.from({ length: k.nw }, (_, j) => `<div class="indset"><b>งานที่ ${j + 1}</b>${field('ชื่อ', `<input ${bindF(sh, SC_NAME, T.work[0] + j)} value="${esc(txt(sh, SC_NAME, T.work[0] + j))}">`)}${field('คะแนนเต็ม', `<input inputmode="numeric" ${bindF(sh, SC_MAX, T.work[0] + j, 'num')} value="${esc(txt(sh, SC_MAX, T.work[0] + j))}">`)}</div>`).join('');
-    const none = !k.ni && !k.nw;
-    const cfg = `<details class="card soft more" ${none ? 'open' : ''}><summary><b>ตั้งค่าตัวชี้วัดและคะแนนเต็ม</b> <span class="hint">ใช้ร่วมกันทั้ง 2 ภาคเรียนของวิชานี้ ยกเว้นรายการตัวชี้วัด/งานที่แยกตามภาค</span></summary>
+    const indIn = Array.from({ length: k.nw }, (_, j) => `<div class="indset"><b>ตัวชี้วัดที่ ${j + 1}</b>${field('ชื่อ', `<input ${bindF(sh, SC_NAME, T.work[0] + j)} value="${esc(txt(sh, SC_NAME, T.work[0] + j))}">`)}${field('คะแนนเต็ม', `<input inputmode="numeric" ${bindF(sh, SC_MAX, T.work[0] + j, 'num')} value="${esc(txt(sh, SC_MAX, T.work[0] + j))}">`)}</div>`).join('');
+    const none = !k.nw;
+    const cfg = `<details class="card soft more" ${none ? 'open' : ''}><summary><b>ตั้งค่าตัวชี้วัดและคะแนนเต็ม</b> <span class="hint">รายการตัวชี้วัดแยกตามภาคเรียน · สัดส่วนคะแนนใช้ร่วมกันทั้ง 2 ภาคเรียนของวิชานี้</span></summary>
       <div class="maxbox" style="margin-top:8px">
         <label class="fld"><span>สัดส่วน ระหว่างเรียน</span><input inputmode="numeric" ${bindF(sh, 3, 'DA', 'num')} value="${esc(txt(sh, 3, 'DA'))}"></label>
         <label class="fld"><span>สัดส่วน ปลายภาค (= คะแนนสอบเต็ม)</span><input inputmode="numeric" ${bindF(sh, 3, 'DC', 'num')} value="${esc(txt(sh, 3, 'DC'))}"></label>
       </div>
-      <p class="hint">ระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])} (รวม ${fmt2((ratio[0] || 0) + (ratio[1] || 0))} คะแนน) คะแนนระหว่างเรียนทุกงานจะถูกปรับให้เต็มตามสัดส่วนระหว่างเรียนอัตโนมัติ</p>
-      <h4 style="margin:.6rem 0 .3rem">ตัวชี้วัด (ผ/มผ) เทอม ${U.term}</h4><div class="maxbox">${indIn}</div>
-      <div class="row" style="margin:6px 0"><button class="btn sm" data-act="ind-add">＋ เพิ่มตัวชี้วัด</button><button class="btn sm" data-act="ind-del" ${k.ni ? '' : 'disabled'}>－ ลดตัวชี้วัด</button></div>
-      <h4 style="margin:.6rem 0 .3rem">งาน / คะแนนระหว่างเรียน เทอม ${U.term}</h4><div class="maxbox">${workIn}</div>
-      <div class="row" style="margin:6px 0"><button class="btn sm" data-act="work-add">＋ เพิ่มงาน</button><button class="btn sm" data-act="work-del" ${k.nw ? '' : 'disabled'}>－ ลดงาน</button></div></details>`;
-    if (none) return cfg + '<div class="card empty"><b>ยังไม่ได้กำหนดตัวชี้วัดและงาน</b>กดปุ่มด้านบนเพื่อเพิ่ม หรือ<br><br><button class="btn primary" data-act="work-add">เพิ่มงานแรก</button></div>';
+      <p class="hint">ระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])} (รวม ${fmt2((ratio[0] || 0) + (ratio[1] || 0))} คะแนน) คะแนนตัวชี้วัดทุกตัวจะถูกปรับให้เต็มตามสัดส่วนระหว่างเรียนอัตโนมัติ</p>
+      <h4 style="margin:.6rem 0 .3rem">ตัวชี้วัด / คะแนนระหว่างเรียน เทอม ${U.term}</h4><div class="maxbox">${indIn}</div>
+      <div class="row" style="margin:6px 0"><button class="btn sm" data-act="work-add">＋ เพิ่มตัวชี้วัด</button><button class="btn sm" data-act="work-del" ${k.nw ? '' : 'disabled'}>－ ลดตัวชี้วัด</button></div></details>`;
+    if (none) return cfg + '<div class="card empty"><b>ยังไม่ได้กำหนดตัวชี้วัด</b>กดปุ่ม “เพิ่มตัวชี้วัด” ด้านบน หรือ<br><br><button class="btn primary" data-act="work-add">เพิ่มตัวชี้วัดแรก</button></div>';
     let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', body = '';
-    for (let j = 0; j < k.ni; j++) th += `<th>${esc(txt(sh, SC_NAME, T.ind[0] + j) || 'ตัวชี้วัด')}<br><small>ผ / มผ</small></th>`;
-    for (let j = 0; j < k.nw; j++) th += `<th>${esc(txt(sh, SC_NAME, T.work[0] + j) || 'งาน')}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small></th>`;
+    for (let j = 0; j < k.nw; j++) th += `<th>${esc(txt(sh, SC_NAME, T.work[0] + j) || 'ตัวชี้วัด')}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small></th>`;
     th += `<th>สอบ<br><small>(${esc(txt(sh, 3, 'DC'))})</small></th><th class="ro">ระหว่างเรียน</th><th class="ro">รวม</th><th class="ro">ร้อยละ</th><th class="ro">ระดับ</th>`;
     for (let i = 0; i < n; i++) {
       const r = IND_ROW + i; let gc = 0;
       body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>`;
-      for (let j = 0; j < k.ni; j++) body += gcell(sh, r, T.ind[0] + j, 'pass', i, gc++, { cls2: get(sh, r, T.ind[0] + j) === 'ผ' ? 'ok' : get(sh, r, T.ind[0] + j) === 'มผ' ? 'no' : '' });
       for (let j = 0; j < k.nw; j++) body += gcell(sh, r, T.work[0] + j, 'num', i, gc++);
       body += gcell(sh, r, T.exam, 'num', i, gc++) + rocell(sh, r, T.btw) + rocell(sh, r, T.total) + rocell(sh, r, T.pct) + rocell(sh, r, T.grade, 'grade') + '</tr>';
     }
-    return cfg + `<p class="hint">คลิกช่องแล้วพิมพ์ · ตัวชี้วัดพิมพ์ ผ / มผ (หรือกด Space สลับ) · ลูกศร/Enter เลื่อนช่อง · วางคะแนนหลายช่องจาก Excel ได้ (Ctrl+V)</p>
+    return cfg + `<p class="hint">คลิกช่องแล้วพิมพ์คะแนน · ลูกศร/Enter เลื่อนช่อง · วางคะแนนหลายช่องจาก Excel ได้ (Ctrl+V)</p>
       <div class="tw"><table class="t sheet"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
       <p style="margin-top:10px"><button class="btn danger sm" data-act="clearall">ล้างคะแนนภาคเรียนนี้</button> <button class="btn sm" data-act="doc" data-name="${esc(sh)}">เปิดชีทเต็มรูปแบบ (Excel)</button></p>`;
   }
@@ -1102,8 +1088,8 @@
   // ---------------------------------------------------------------- คู่มือ
   function vManual() {
     const S = [
-      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและงาน แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
-      ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>ตัวชี้วัดพิมพ์ <b>ผ</b> หรือ <b>มผ</b> (หรือกด <kbd>Space</kbd> สลับ)</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
+      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
+      ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
       ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ แต่แก้เฉพาะวิชาของตนได้เมื่อนักเรียนเรียนไม่เต็มวัน (แตะช่อง) วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],
       ['สำรองข้อมูล', `<p>ข้อมูลเก็บบนระบบอัตโนมัติ ควรกด <b>ข้อมูล › สำรองข้อมูล</b> เพื่อดาวน์โหลดไฟล์เก็บไว้เป็นระยะ</p>`],
