@@ -87,6 +87,11 @@
       if (td.textContent !== t) td.textContent = t;
       if (k === 'grade') td.className = 'ro ' + (t === '' ? '' : gradeCls(t));
     });
+    $$('[data-sum]', scope || document).forEach(td => {
+      const [r, c1, c2] = td.dataset.sum.split('|'); const sh = 'วิชาที่ ' + U.subj;
+      const x = num(sh, +r, c1), y = num(sh, +r, c2), t = x === null && y === null ? '' : fmt2((x || 0) + (y || 0));
+      if (td.textContent !== t) td.textContent = t;
+    });
     $$('[data-roh]', scope || document).forEach(el => { const [sh, r, c] = el.dataset.roh.split('|'); el.textContent = roText(sh, +r, +c); });
   }
   const gradeCls = (g) => { const n = parseFloat(g); return isNaN(n) ? '' : n >= 3 ? 'gok' : n >= 1 ? 'gmid' : 'gbad'; };
@@ -937,12 +942,21 @@
       <p style="margin-top:10px"><button class="btn danger sm" data-act="clearall">ล้างคะแนนภาคเรียนนี้</button> <button class="btn sm" data-act="doc" data-name="${esc(sh)}">เปิดชีทเต็มรูปแบบ (Excel)</button></p>`;
   }
   function vScoreYear(n) {
+    // คอลัมน์ผลรายภาคของชีท: EI-EL = เทอม 1 (ระหว่างภาค ปลายภาค รวม ร้อยละ) · EM-EP = เทอม 2 · EQ ER ES = รวมรายปี ร้อยละ ระดับ
     const sh = 'วิชาที่ ' + U.subj; let body = '';
+    const cell = (r, c, kind) => rocell(sh, r, c, kind);
     for (let i = 0; i < n; i++) {
       const r = IND_ROW + i;
-      body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>${rocell(sh, r, SC[1].total)}${rocell(sh, r, SC[1].grade, 'grade')}${rocell(sh, r, SC[2].total)}${rocell(sh, r, SC[2].grade, 'grade')}${rocell(sh, r, 'EQ')}${rocell(sh, r, 'ER')}${rocell(sh, r, 'ES', 'grade')}</tr>`;
+      body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>`
+        + cell(r, 'EI') + cell(r, 'EJ') + cell(r, 'EK') + cell(r, 'EL') + cell(r, SC[1].grade, 'grade')
+        + cell(r, 'EM') + cell(r, 'EN') + cell(r, 'EO') + cell(r, 'EP') + cell(r, SC[2].grade, 'grade')
+        + `<td class="ro" data-sum="${r}|EI|EM"></td><td class="ro" data-sum="${r}|EJ|EN"></td>` + cell(r, 'EQ') + cell(r, 'ER') + cell(r, 'ES', 'grade') + '</tr>';
     }
-    return `<p class="hint">สรุปผลทั้งปี คำนวณจากคะแนนภาคเรียนที่ 1 และ 2 (ดูอย่างเดียว)</p><div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th><th>เทอม 1 รวม</th><th>ระดับ</th><th>เทอม 2 รวม</th><th>ระดับ</th><th>รวมทั้งปี</th><th>ร้อยละ</th><th>ระดับผลการเรียน</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    return `<p class="hint">สรุปผลทั้งปี คำนวณจากคะแนนภาคเรียนที่ 1 และ 2 (ดูอย่างเดียว) · คะแนนเก็บ = คะแนนตัวชี้วัด/ระหว่างเรียน</p>
+      <div class="tw"><table class="t sheet"><thead>
+        <tr><th class="no" rowspan="2">ที่</th><th class="stk" rowspan="2">ชื่อ - สกุล</th><th colspan="5">ภาคเรียนที่ 1</th><th colspan="5">ภาคเรียนที่ 2</th><th colspan="5">รวมทั้งปี</th></tr>
+        <tr><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวม</th><th>ร้อยละ</th><th>ระดับ</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวม</th><th>ร้อยละ</th><th>ระดับ</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวม</th><th>ร้อยละ</th><th>ระดับผลการเรียน</th></tr>
+      </thead><tbody>${body}</tbody></table></div>`;
   }
 
   // ---------------------------------------------------------------- ประเมิน (คุณลักษณะ · ค่านิยม · กิจกรรม)
