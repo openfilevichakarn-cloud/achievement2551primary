@@ -64,3 +64,14 @@ table.sheet.subj td.wide input,table.sheet.subj td:nth-child(3) input,table.shee
 table.sheet.subj td input{min-width:0}
 .tw:has(table.subj){width:100%}
 @media (max-width:760px){table.sheet.subj{table-layout:auto;min-width:640px}}
+
+/* ปรับหัวข้อ คุณลักษณะ/ค่านิยม */
+.aedit .agrp{margin:10px 0 14px}
+.aedit .aitems{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.aedit .aitem{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:2px 4px 2px 8px;background:var(--bg)}
+.aedit .aitem .no{color:var(--muted);font-size:.8rem;min-width:16px}
+.aedit .aitem .in{width:118px;min-height:34px;border:0;padding:2px 4px;background:transparent}
+.aedit .aitem .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px}
+.aedit .aitem .x:hover:not(:disabled){background:#fee2e2;color:#b91c1c}
+.aedit .aitem .x:disabled{opacity:.3;cursor:default}
+.btn.on{border-color:var(--primary,#2563eb);color:var(--primary,#2563eb)}

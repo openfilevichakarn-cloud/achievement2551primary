@@ -120,6 +120,7 @@
   const markPass = (inp) => { inp.classList.toggle('ok', inp.value === 'ผ'); inp.classList.toggle('no', inp.value === 'มผ'); };
   function onChange(e) {
     if (e.target.dataset && e.target.dataset.attp) { schedChange(e.target); return; }
+    if (e.target.dataset && (e.target.dataset.aitem !== undefined || e.target.dataset.agrp !== undefined)) { itemChange(e.target); return; }
     const inp = e.target.closest('input.gc'); if (inp) { commitInput(inp); updateRo($('#view')); return; }
     const x = e.target.closest('[data-f]'); if (x) fieldChange(x);
   }
@@ -176,6 +177,9 @@
       case 'doc': A().openSheet(b.dataset.name); break;
       case 'print-doc': A().printSheets([b.dataset.name]); break;
       case 'cyc': cycle(b); break;
+      case 'aedit': set({ aedit: !U.aedit }); break;
+      case 'aadd': itemAdd(+b.dataset.g); break;
+      case 'adel': itemDel(+b.dataset.g, +b.dataset.i); break;
       case 'setall': setAllLevels(+k); break;
       case 'act': toggleActivity(b); break;
       case 'work-add': workAdd(1); break;
@@ -256,7 +260,7 @@
   }
   function assessProgress() {
     const n = nStudents(); if (!n) return 0; let done = 0, all = 0;
-    for (const t of [1, 2]) for (let i = 0; i < n; i++) for (let c = 3; c <= 10; c++) { all++; if (num('คุณลักษณะ ' + t, 5 + i, c) !== null) done++; }
+    for (const t of [1, 2]) for (let i = 0; i < n; i++) for (const c of items('trait', 0)) { all++; if (num('คุณลักษณะ ' + t, 5 + i, c) !== null) done++; }
     return Math.round(done * 100 / all);
   }
   function vHome() {
@@ -962,21 +966,26 @@
   // ---------------------------------------------------------------- ประเมิน (คุณลักษณะ · ค่านิยม · กิจกรรม)
   const LV_TRAIT = ['ไม่ผ่าน', 'ผ่าน', 'ดี', 'ดีเยี่ยม'], LV_COMP = ['ปรับปรุง', 'พอใช้', 'ดี', 'ดีเยี่ยม'];
   const AS = {
-    trait: { title: 'คุณลักษณะอันพึงประสงค์', base: 'คุณลักษณะ', groups: [{ name: 'คุณลักษณะอันพึงประสงค์ 8 ประการ', cols: [3, 10], lv: LV_TRAIT, hr: 3 }, { name: 'การอ่าน คิดวิเคราะห์ และเขียน', cols: [17, 21], lv: LV_TRAIT, hr: 3 }] },
-    value: { title: 'ค่านิยม · สมรรถนะ', base: 'ค่านิยม', groups: [{ name: 'ค่านิยมหลัก 12 ประการ', cols: [3, 14], lv: LV_TRAIT, hr: 3 }, { name: 'สมรรถนะสำคัญของผู้เรียน', cols: [19, 23], lv: LV_COMP, hr: 3 }] },
+    trait: { title: 'คุณลักษณะอันพึงประสงค์', base: 'คุณลักษณะ', lv: [LV_TRAIT, LV_TRAIT] },
+    value: { title: 'ค่านิยม · สมรรถนะ', base: 'ค่านิยม', lv: [LV_TRAIT, LV_COMP] },
     act: { title: 'กิจกรรมพัฒนาผู้เรียน', base: 'กิจกรรม' },
   };
+  // หัวข้อของ คุณลักษณะ/ค่านิยม ปรับได้ (เพิ่ม/ลด/ตั้งชื่อ) — ตำแหน่งคอลัมน์คำนวณจากจำนวนหัวข้อของห้องนี้
+  const itemCfg = (kind) => A().S.items[kind];
+  const items = (kind, g) => root.PPAssess.layout(kind, itemCfg(kind).n).items[g];
+  const groupName = (kind, g) => itemCfg(kind).g[g];
+  const assessGroups = (kind) => [0, 1].map(g => { const cols = items(kind, g); return { name: groupName(kind, g), cols: [cols[0], cols[cols.length - 1]], lv: AS[kind].lv[g], hr: 3, g }; });
   const assessSheet = () => AS[U.akind].base + ' ' + (U.aterm === 'sum' ? 'รวม' : U.aterm);
   function vAssess() {
     const n = nStudents();
-    const head = `<div class="bar">${seg([['trait', 'คุณลักษณะ'], ['value', 'ค่านิยม · สมรรถนะ'], ['act', 'กิจกรรมพัฒนาผู้เรียน']], U.akind, 'akind')}${seg([[1, 'เทอม 1'], [2, 'เทอม 2'], ['sum', 'ทั้งปี']], U.aterm, 'aterm')}<span class="grow"></span><button class="btn primary" data-act="print-doc" data-name="${esc(assessSheet())}">พิมพ์${esc(AS[U.akind].title)}</button></div>`;
+    const head = `<div class="bar">${seg([['trait', 'คุณลักษณะ'], ['value', 'ค่านิยม · สมรรถนะ'], ['act', 'กิจกรรมพัฒนาผู้เรียน']], U.akind, 'akind')}${seg([[1, 'เทอม 1'], [2, 'เทอม 2'], ['sum', 'ทั้งปี']], U.aterm, 'aterm')}<span class="grow"></span>${U.akind === 'act' ? '' : `<button class="btn${U.aedit ? ' on' : ''}" data-act="aedit">${U.aedit ? 'ปิดการปรับหัวข้อ' : 'ปรับหัวข้อ'}</button>`}<button class="btn primary" data-act="print-doc" data-name="${esc(assessSheet())}">พิมพ์${esc(AS[U.akind].title)}</button></div>`;
     if (!n) return head + '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่แท็บ “ข้อมูล › นักเรียน” ก่อน</div>';
     const edit = U.aterm !== 'sum', sh = assessSheet();
     if (U.akind === 'act') return head + vActivities(n, sh, edit);
-    const K = AS[U.akind]; let h1 = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', h2 = '<th class="no"></th><th class="stk"></th>', cols = [];
+    const K = { groups: assessGroups(U.akind) }; let h1 = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', h2 = '<th class="no"></th><th class="stk"></th>', cols = [];
     for (const g of K.groups) {
       h1 += `<th colspan="${g.cols[1] - g.cols[0] + 1}">${esc(g.name)}</th>`;
-      for (let c = g.cols[0]; c <= g.cols[1]; c++) { h2 += `<th>${esc(txt(sh, g.hr, c) || String(c - g.cols[0] + 1))}</th>`; cols.push({ c, lv: g.lv }); }
+      for (let c = g.cols[0]; c <= g.cols[1]; c++) { h2 += `<th data-ah="${g.g}|${c - g.cols[0]}">${esc(txt(sh, g.hr, c) || String(c - g.cols[0] + 1))}</th>`; cols.push({ c, lv: g.lv }); }
     }
     let body = '';
     for (let i = 0; i < n; i++) {
@@ -985,7 +994,29 @@
       body += '</tr>';
     }
     const tools = edit ? `<div class="bar"><span class="hint">ตั้งทั้งห้อง:</span><button class="btn sm" data-act="setall" data-k="1">ผ่าน</button><button class="btn sm" data-act="setall" data-k="2">ดี</button><button class="btn sm" data-act="setall" data-k="3">ดีเยี่ยม</button><button class="btn sm danger" data-act="setall" data-k="-1">ล้างทั้งหมด</button></div>` : '';
-    return head + `<p class="hint">แตะช่องเพื่อเปลี่ยนระดับ (ว่าง → ผ่าน → ดี → ดีเยี่ยม → ไม่ผ่าน → ว่าง)${edit ? '' : ' · ทั้งปีคำนวณจากเทอม 1 และ 2 ดูอย่างเดียว'}</p>${tools}<div class="tw"><table class="t sheet"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${body}</tbody></table></div>`;
+    return head + (U.aedit ? itemEditor(U.akind) : '') + `<p class="hint">แตะช่องเพื่อเปลี่ยนระดับ (ว่าง → ผ่าน → ดี → ดีเยี่ยม → ไม่ผ่าน → ว่าง)${edit ? '' : ' · ทั้งปีคำนวณจากเทอม 1 และ 2 ดูอย่างเดียว'}</p>${tools}<div class="tw"><table class="t sheet"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  // แผงปรับหัวข้อ: เปลี่ยนชื่อกลุ่ม/หัวข้อ เพิ่ม ลบ — ใช้กับทั้งเทอม 1 เทอม 2 ทั้งปี และหน้าพิมพ์ ปพ.5/ปพ.6
+  function itemEditor(kind) {
+    const c = itemCfg(kind), K = root.PPAssess.KINDS[kind];
+    const grp = [0, 1].map(g => `<div class="agrp"><label class="fld"><span>ชื่อกลุ่ม</span><input class="in" data-agrp="${g}" value="${esc(c.g[g])}"></label>
+      <div class="aitems">${c.names[g].map((nm, i) => `<span class="aitem"><span class="no">${i + 1}</span><input class="in" data-aitem="${g}|${i}" value="${esc(nm)}" aria-label="ชื่อหัวข้อที่ ${i + 1}"><button class="x" data-act="adel" data-g="${g}" data-i="${i}" title="ลบหัวข้อนี้"${c.n[g] <= 1 ? ' disabled' : ''}>✕</button></span>`).join('')}
+        <button class="btn sm" data-act="aadd" data-g="${g}"${c.n[g] >= K.max[g] ? ' disabled' : ''}>+ เพิ่มหัวข้อ</button></div></div>`).join('');
+    return `<div class="card aedit"><h3>ปรับหัวข้อ · ${esc(AS[kind].title)}</h3>
+      <p class="hint">ตั้งชื่อกลุ่มและหัวข้อ เพิ่มหรือลบได้ — มีผลทั้งเทอม 1 เทอม 2 ทั้งปี และเอกสาร ปพ.5 / ปพ.6 · ลบหัวข้อจะลบระดับที่กรอกไว้ของหัวข้อนั้นด้วย · ชื่อสั้น ๆ จะพอดีหัวตารางพิมพ์</p>${grp}</div>`;
+  }
+  function itemChange(x) {
+    const kind = U.akind;
+    if (x.dataset.agrp !== undefined) { const g = +x.dataset.agrp, v = x.value.trim() || root.PPAssess.KINDS[kind].origG[g]; A().editItems(kind, c => { c.g[g] = v; }); refresh(); return; }
+    const [g, i] = x.dataset.aitem.split('|').map(Number), v = x.value.trim() || String(i + 1);
+    A().renameItem(kind, g, i, v); x.value = v;
+    const th = $(`th[data-ah="${g}|${i}"]`); if (th) th.textContent = v;
+  }
+  function itemAdd(g) { A().editItems(U.akind, c => { c.n[g]++; c.names[g].push(String(c.n[g])); }); refresh(); }
+  function itemDel(g, i) {
+    const nm = itemCfg(U.akind).names[g][i];
+    if (!confirm('ลบหัวข้อ “' + nm + '” ?\nระดับที่กรอกไว้ของหัวข้อนี้จะถูกลบด้วย')) return;
+    A().editItems(U.akind, c => { c.n[g]--; c.names[g].splice(i, 1); }, { g, i }); refresh();
   }
   function lvCell(sh, r, c, labels, edit) {
     const v = get(sh, r, c), ok = typeof v === 'number' && v >= 0 && v <= 3;
@@ -1003,7 +1034,7 @@
   function setAllLevels(level) {
     const n = nStudents(), sh = assessSheet(); if (!n || U.aterm === 'sum') return;
     if (U.akind === 'act') { for (let i = 0; i < n; i++) setActivity(sh, 5 + i, level === -1 ? null : 'pass'); refresh(); return; }
-    for (const g of AS[U.akind].groups) for (let i = 0; i < n; i++) for (let c = g.cols[0]; c <= g.cols[1]; c++) setv(sh, 5 + i, c, level === -1 ? null : level);
+    for (const g of assessGroups(U.akind)) for (let i = 0; i < n; i++) for (let c = g.cols[0]; c <= g.cols[1]; c++) setv(sh, 5 + i, c, level === -1 ? null : level);
     refresh();
   }
   // กิจกรรม: คู่คอลัมน์ [ไม่ผ่าน, ผ่าน] ของแต่ละกิจกรรม (ชุมนุมมีช่องชื่อชุมนุมอยู่ก่อน)
@@ -1077,7 +1108,7 @@
     }
     const chip = (v) => v === null || v === '' ? '<span class="lvl none">-</span>' : `<span class="pass ${v === 'ไม่ผ่าน' || v === 'ปรับปรุง' ? 'no' : 'ok'}">${esc(String(v))}</span>`;
     const act = [35, 36, 37, 38].map(r => `<div class="row sp"><span>${esc(txt(sh, r, 2))}${r === 37 && txt(sh, r, 3) ? ' (' + esc(txt(sh, r, 3)) + ')' : ''}</span>${chip(get(sh, r, 4))}</div>`).join('');
-    const ass = [[39, 'คุณลักษณะอันพึงประสงค์'], [40, 'การอ่าน คิดวิเคราะห์ และเขียน'], [41, 'ค่านิยมหลัก 12 ประการ'], [42, 'สมรรถนะสำคัญของผู้เรียน']].map(([r, t]) => `<div class="row sp"><span>${t}</span>${chip(get(sh, r, 4))}</div>`).join('');
+    const ass = [[39, groupName('trait', 0)], [40, groupName('trait', 1)], [41, groupName('value', 0)], [42, groupName('value', 1)]].map(([r, t]) => `<div class="row sp"><span>${t}</span>${chip(get(sh, r, 4))}</div>`).join('');
     return head + pick + `<div class="card" style="margin-top:12px"><div class="rhead"><div><h3>${esc(stuName(U.p6no - 1))}</h3><span class="hint">เลขที่ ${U.p6no} · รหัส ${esc(txt(ST, 3 + U.p6no - 1, 6))} · ${esc(txt(SUBJ, 2, 2))}</span></div>
         <div class="row"><button class="btn" data-act="doc" data-name="${esc(sh)}">ดูเอกสาร</button><button class="btn primary" data-act="p6print">พิมพ์คนนี้</button><button class="btn" data-act="p6all">พิมพ์ทั้งห้อง</button></div></div></div>
       <div class="tw p5tw"><table class="t p5t"><thead><tr><th>รหัส</th><th class="stk">รายวิชา</th><th>เวลาเรียน</th><th>คะแนนเต็ม</th><th>เฉลี่ยชั้น</th><th>คะแนนที่ได้</th><th>ร้อยละ</th><th>ระดับ</th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="hint">ยังไม่มีรายวิชา</td></tr>'}</tbody>
@@ -1102,7 +1133,7 @@
   // ---------------------------------------------------------------- คู่มือ
   function vManual() {
     const S = [
-      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
+      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม · ปุ่ม <b>ปรับหัวข้อ</b> ใช้ตั้งชื่อกลุ่ม/หัวข้อ เพิ่มหรือลบหัวข้อของคุณลักษณะ ค่านิยม และสมรรถนะ</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
       ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
       ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ แต่แก้เฉพาะวิชาของตนได้เมื่อนักเรียนเรียนไม่เต็มวัน (แตะช่อง) วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],

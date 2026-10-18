@@ -100,7 +100,6 @@
     await new Promise(r => setTimeout(r, 30));   // ให้หน้าจอวาดข้อความ "กำลังโหลด" ก่อนสร้างเวิร์กบุ๊ก
     S.styles = S.template.styles;
     $('#xl-css').textContent = R.styleCss(S.styles);
-    S.wb = new P.Workbook(S.template);
     S.view = { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() };
     S.userEdits = {}; S.att = {};
     $('#loading-msg').textContent = 'กำลังโหลดข้อมูลของโรงเรียน...';
@@ -115,6 +114,9 @@
       if (draft) { try { doc = JSON.parse(draft).data; S.version = JSON.parse(draft).version || 0; } catch (x) { /* ignore */ } }
       toast('โหลดจากเซิร์ฟเวอร์ไม่ได้ ใช้ข้อมูลที่เก็บในเครื่องนี้แทน', 'warn');
     }
+    S.items = PPAssess.normalize(S.template, doc && doc.items);
+    if (doc && doc.cells && !doc.items) for (const k of Object.keys(PPAssess.KINDS)) PPAssess.remapEdits(doc.cells, k, PPAssess.KINDS[k].base, S.items[k].n);   // เอกสารเก่า (ก่อนมีการปรับหัวข้อ)
+    makeWb();
     applyDoc(doc);
     $('#school-name').textContent = S.school.name;
     $('#grade-label').textContent = roomLabel(g, room);
@@ -124,6 +126,28 @@
     setStatus(S.offline ? 'ออฟไลน์ (ใช้ข้อมูลในเครื่อง)' : 'พร้อมใช้งาน', S.offline ? 'warn' : 'ok');
   }
 
+  // เวิร์กบุ๊กสร้างจากแม่แบบที่ปรับจำนวนหัวข้อ คุณลักษณะ/ค่านิยม ตามค่าตั้งของห้องนี้ (S.items)
+  function makeWb() { S.wb = new P.Workbook(PPAssess.apply(S.template, S.items)); }
+  function rebuildWb() {
+    makeWb();
+    for (const [sh, m] of Object.entries(S.userEdits)) if (S.wb.sheet(sh)) for (const [ref, v] of Object.entries(m)) S.wb.setValue(sh, ref, v);
+    lockSchoolName(); roomClassLabel();
+  }
+  // แก้ค่าตั้งหัวข้อของ kind (trait|value): fn แก้สำเนา {n, g, names} · del = {g, i} เมื่อลบหัวข้อ · structure=true เมื่อต้องสร้างเวิร์กบุ๊กใหม่
+  function editItems(kind, fn, del) {
+    const cur = JSON.parse(JSON.stringify(S.items[kind])), old = cur.n.slice(); fn(cur);
+    const nx = PPAssess.normalize(S.template, { [kind]: cur })[kind];
+    S.items = { ...S.items, [kind]: nx };
+    PPAssess.remapEdits(S.userEdits, kind, old, nx.n, del);
+    rebuildWb(); markDirty();
+  }
+  // เปลี่ยนชื่อหัวข้อโดยไม่ต้องสร้างเวิร์กบุ๊กใหม่
+  function renameItem(kind, g, i, name) {
+    S.items[kind].names[g][i] = name;
+    const col = PPAssess.numCol(PPAssess.layout(kind, S.items[kind].n).items[g][i]) + '3', v = /^\d+$/.test(name) ? +name : name;
+    for (const sh of PPAssess.sheetsOf(kind)) S.wb.setValue(sh, col, v);
+    markDirty();
+  }
   function applyDoc(doc) {
     S.att = (doc && doc.att) || {};
     if (doc && doc.cells) {
@@ -211,7 +235,7 @@
     draw();
   }
 
-  function buildDoc() { return { v: 3, grade: S.grade, room: S.room, cells: S.userEdits, att: S.att, active: S.active, savedAt: new Date().toISOString() }; }
+  function buildDoc() { return { v: 3, grade: S.grade, room: S.room, cells: S.userEdits, items: S.items, att: S.att, active: S.active, savedAt: new Date().toISOString() }; }
   function markDirty() {
     if (S.batch) { S.pendingDirty = true; S.dirty = true; return; }
     S.dirty = true; setStatus('มีการแก้ไข... (จะบันทึกอัตโนมัติ)', 'dirty');
@@ -597,6 +621,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms,
+    printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem,
   };
 })();
