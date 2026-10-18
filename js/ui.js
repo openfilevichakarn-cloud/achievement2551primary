@@ -328,7 +328,7 @@
     }
     return `<datalist id="groups">${GROUPS8.map(p => `<option value="${p}">`).join('')}</datalist>
       <div class="card soft"><b>รายวิชา ${n} วิชา</b> (สูงสุด ${MAX_SUBJ} วิชา)<p class="hint" style="margin:.3rem 0 0">ชื่อวิชาที่กรอกจะไปปรากฏในเมนู “คะแนน” และในเอกสาร ปพ.5 / ปพ.6 ทุกฉบับ เวลาเรียนคือชั่วโมงต่อปี</p></div>
-      <div class="tw fit"><table class="t sheet fit"><thead><tr><th class="no">ที่</th><th>รหัสวิชา</th><th>รายวิชา</th><th>เวลาเรียน (ชม./ปี)</th><th>กลุ่มสาระการเรียนรู้</th><th>ครูประจำวิชา</th></tr></thead><tbody>${body}</tbody></table></div>
+      <div class="tw"><table class="t sheet subj"><thead><tr><th class="no">ที่</th><th>รหัสวิชา</th><th>รายวิชา</th><th>เวลาเรียน (ชม./ปี)</th><th>กลุ่มสาระการเรียนรู้</th><th>ครูประจำวิชา</th></tr></thead><tbody>${body}</tbody></table></div>
       ${rows < MAX_SUBJ ? '<p><button class="btn" data-act="addrows" data-key="subjRows">＋ เพิ่ม 2 แถว</button></p>' : ''}`.replace(/(<input class="gc"[^>]*data-gc="3")/g, '$1 list="groups"');
   }
   function vBody() {
