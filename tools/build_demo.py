@@ -16,7 +16,7 @@ os.makedirs(OUT, exist_ok=True)
 for d in ('js', 'css', 'fonts', 'img', 'data'):
     shutil.rmtree(os.path.join(OUT, d), ignore_errors=True)
     shutil.copytree(os.path.join(ROOT, d), os.path.join(OUT, d))
-for f in ('js/admin.js', 'js/register.js', 'js/vendor/jsQR.js', 'css/admin.css', 'css/register.css', 'css/ui.css'):
+for f in ('js/admin.js', 'js/register.js', 'js/vendor/jsQR.js', 'css/admin.css', 'css/register.css'):
     p = os.path.join(OUT, f); os.path.exists(p) and os.remove(p)
 shutil.rmtree(os.path.join(OUT, 'js', 'vendor'), ignore_errors=True)
 for f in ('pp-config.js',):   # ไฟล์ตั้งค่าอยู่ข้างหน้าเว็บ (ชั้นนอก) ไม่ใช้ของเว็บจริง

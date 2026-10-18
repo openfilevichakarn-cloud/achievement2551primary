@@ -15,3 +15,13 @@ table.xl td.sel{box-shadow:inset 0 0 0 2px var(--brand)}
   body.navopen #nav{transform:none}
   .brand{font-size:.95rem}
 }
+
+/* ระดับในปุ่มประเมิน และสีเกรดในตารางคะแนน */
+.pc.l0{background:var(--lv0bg);color:var(--lv0);border-color:transparent;font-weight:700}
+.pc.l1{background:var(--lv1bg);color:var(--lv1);border-color:transparent;font-weight:700}
+.pc.l2{background:var(--lv2bg);color:var(--lv2);border-color:transparent;font-weight:700}
+.pc.l3{background:var(--lv3bg);color:var(--lv3);border-color:transparent;font-weight:700}
+table.sheet td.ro.gok{background:var(--lv3bg);color:var(--lv3);font-weight:700}
+table.sheet td.ro.gmid{background:var(--lv2bg);color:var(--lv2);font-weight:700}
+table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
+.docviewer .sheet-head h2{flex:none}

@@ -8,6 +8,7 @@
 <meta name="robots" content="noindex">
 <script src="js/theme.js"></script>
 <link rel="stylesheet" href="css/pp-app.css">
+<link rel="stylesheet" href="css/ui.css">
 <link rel="stylesheet" href="css/web.css">
 <style id="xl-css"></style>
 </head>
@@ -32,24 +33,23 @@
 <!-- ============ แอป ============ -->
 <div id="app" hidden>
   <header class="topbar">
-    <button id="nav-toggle" class="btn icon" aria-label="เมนู">☰</button>
     <div class="brand"><span id="school-name"></span><span class="lock" title="ชื่อโรงเรียนถูกล็อกตามรหัสสิทธิ์">🔒</span><span class="grade" id="grade-label"></span></div>
     <select id="grade-switch" hidden aria-label="ชั้น"></select>
     <span class="grow"></span>
     <span id="savestat" class="savestat"></span>
     <button id="save-now" class="btn">บันทึก</button>
-    <button id="backup" class="btn ghost" title="ดาวน์โหลดไฟล์สำรองข้อมูลทุกห้อง">สำรอง</button>
-    <button id="restore" class="btn ghost" title="นำเข้าไฟล์สำรอง">นำเข้า</button>
+    <button id="open-docs" class="btn" aria-label="เอกสารพิมพ์">เอกสาร</button>
     <button class="btn ghost theme-btn" type="button" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง">🌙</button>
     <button id="logout" class="btn ghost">ออก</button>
   </header>
-  <div class="shell">
-    <nav id="nav" aria-label="รายการชีท"></nav>
-    <section class="stage">
-      <div class="sheet-head"><h2 id="sheet-title"></h2><div id="sheet-tools" class="tools"></div></div>
-      <div id="sheet-scroll" class="sheet-scroll"><div id="sheet-host"></div></div>
-    </section>
-  </div>
+  <main id="view" class="view"></main>
+  <nav id="tabbar" class="tabbar" aria-label="เมนูหลัก"></nav>
+
+  <!-- เอกสารรูปแบบทางการ / ชีทแบบ Excel (ดู · แก้ไข · พิมพ์) -->
+  <section id="docviewer" class="docviewer" hidden>
+    <div class="sheet-head"><button id="doc-close" class="btn">← กลับ</button><h2 id="sheet-title"></h2><div id="sheet-tools" class="tools"></div></div>
+    <div id="sheet-scroll" class="sheet-scroll"><div id="sheet-host"></div></div>
+  </section>
   <div id="loading" class="loading"><div class="spin"></div><p id="loading-msg">กำลังโหลด...</p></div>
 </div>
 
@@ -62,5 +62,6 @@
 <script src="js/render.js"></script>
 <script src="js/backend.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ui.js"></script>
 </body>
 </html>

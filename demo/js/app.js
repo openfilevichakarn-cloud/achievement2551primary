@@ -119,9 +119,8 @@
     $('#school-name').textContent = S.school.name;
     $('#grade-label').textContent = roomLabel(g, room);
     buildGradeSwitch();
-    buildNav();
     $('#loading').hidden = true;
-    openSheet(doc && doc.active && S.wb.sheet(doc.active) ? doc.active : INFO);
+    window.PPUI.mount();
     setStatus(S.offline ? 'ออฟไลน์ (ใช้ข้อมูลในเครื่อง)' : 'พร้อมใช้งาน', S.offline ? 'warn' : 'ok');
   }
 
@@ -313,19 +312,14 @@
     ['ปพ.6 และใบรับรอง', /ปพ\.6|ใบรับรอง|คำชี้แจง/],
   ];
   const subjName = (n) => { const v = S.wb.get(S.wb.sheet(SUBJ), 5 + n, 3); return v === null || v === '' || P.isErr(v) ? '' : String(v); };
-  function buildNav() {
+  // รายการชีทแยกกลุ่ม (ใช้ในเมนู "เอกสาร")
+  function sheetGroups() {
     const groups = GROUPS.map(g => ({ title: g[0], re: g[1], items: [] })); const other = { title: 'อื่น ๆ', items: [] };
     for (const sh of S.wb.sheets) {
       if (sh.def.hidden) continue;
       (groups.find(g => g.re.test(sh.name)) || other).items.push(sh.name);
     }
-    $('#nav').innerHTML = [...groups, other].filter(g => g.items.length).map((g, i) => `<details${i < 2 || g.items.includes(S.active) ? ' open' : ''}><summary>${esc(g.title)}</summary>${g.items.map(n => {
-      const m = /^วิชาที่ (\d+)$/.exec(n); const nm = m ? subjName(+m[1]) : '';
-      return `<button class="navitem${m && !nm ? ' todo' : ''}${n === S.active ? ' on' : ''}" data-sheet="${esc(n)}">${esc(n)}${nm ? `<small>${esc(nm)}</small>` : ''}</button>`;
-    }).join('')}</details>`).join('');
-  }
-  function markNav() {
-    $$('#nav .navitem').forEach(b => { const on = b.dataset.sheet === S.active; b.classList.toggle('on', on); if (on) b.closest('details').open = true; });
+    return [...groups, other].filter(g => g.items.length);
   }
 
   // ---------------------------------------------------------------- แสดง / แก้ไขชีท
@@ -348,12 +342,12 @@
   }
   function openSheet(name) {
     if (!S.wb.sheet(name)) return;
-    if (S.dirty) LS.set(draftKey(), JSON.stringify({ data: buildDoc(), version: S.version }));
     S.active = name; $('#sheet-title').textContent = name;
-    markNav(); document.body.classList.remove('navopen');
+    $('#docviewer').hidden = false; document.body.classList.add('docopen');
     renderSheet(); renderToolbar();
     const sc = $('#sheet-scroll'); sc.scrollTop = 0; sc.scrollLeft = 0;
   }
+  function closeDoc() { endEdit(false); $('#docviewer').hidden = true; document.body.classList.remove('docopen'); if (window.PPUI) PPUI.refresh(); }
   function sheetHtmlFor(name, edit, area, viewOv) {
     return R.sheetHtml({ wb: S.wb, sheetName: name, view: viewOv ? { ...S.view, ...viewOv } : S.view, edit, area, styles: S.styles, canEdit });
   }
@@ -578,18 +572,19 @@
     $('#login-form').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#login-code').value, $('#login-remember').checked); });
     $('#logout').onclick = logout;
     $('#save-now').onclick = () => save(true);
-    $('#backup').onclick = exportBackup;
-    $('#restore').onclick = pickBackup;
-    $('#nav-toggle').onclick = () => document.body.classList.toggle('navopen');
-    $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.navitem'); if (b) openSheet(b.dataset.sheet); });
+    $('#doc-close').onclick = closeDoc;
+    $('#open-docs').onclick = () => { if (window.PPUI) PPUI.go('docs'); };
     $('#sheet-host').addEventListener('click', (e) => { const td = e.target.closest('td.inp'); if (td && !td.classList.contains('editing')) startEdit(td); });
     window.addEventListener('beforeunload', (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
     window.addEventListener('online', () => { if (S.dirty) save(); });
-    window.addEventListener('resize', () => { if (S.wb && S.zoom === 'fit' && !editing) renderSheet(true); });
+    window.addEventListener('resize', () => { if (S.wb && S.zoom === 'fit' && !editing && !$('#docviewer').hidden) renderSheet(true); });
     if (backend.demo) { $('#demo-note').hidden = false; $('#login-code').value = 'DEMO'; }
     const saved = LS.get('pp_code');
     if (saved && !backend.demo) { $('#login-code').value = saved; $('#login-remember').checked = true; doLogin(saved, true); }
   }
   document.addEventListener('DOMContentLoaded', boot);
-  window.PPApp = { S, openSheet, pagesFor, roster, setCell };
+  window.PPApp = {
+    S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
+    printSheets, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms,
+  };
 })();
