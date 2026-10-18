@@ -557,7 +557,7 @@
     for (let i = 0; i < Math.max(n, 1); i++) {
       const r = 5 + i; rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
       for (let d = 1; d <= nd; d++) { const k = d <= mb.days && calDay(m, d) ? attKind(get(ATT, r, mb.start + d - 1)) : null; rows += pcell(k === 1 ? '/' : k ? k : '', grey(d)); }
-      for (let k = 0; k < 4; k++) { const v = get(ATT, r, mb.sum + k); rows += pcell(v === null || v === '-' ? '' : esc(String(v))); }
+      for (let k = 0; k < 4; k++) { const v = get(ATT, r, mb.sum + k); rows += pcell(v === null || v === '' ? '-' : esc(String(v))); }
       rows += '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียน ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
@@ -575,7 +575,7 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const st = classStat(i, term);
-      rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>${ms.map(m => pcell(st.per[m] || '')).join('')}${[st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('')}${pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '')}</tr>`;
+      rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>${ms.map(m => pcell(st.per[m] || '-')).join('')}${[st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '-')).join('')}${pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '')}</tr>`;
     }
     const planned = ms.reduce((t, m) => t + calCount(m), 0);
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียน ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<div style="margin:0 0 4px">จำนวนวันเรียนตามปฏิทิน <b>${planned}</b> วัน · ร้อยละ = วันที่มา ÷ วันที่เช็คแล้ว · เกณฑ์ไม่น้อยกว่าร้อยละ ${PCT_MIN}</div>
@@ -769,7 +769,7 @@
       const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 };
       for (const s of days) { const a = s.off ? null : dayAmt(s, i, slot); if (a) { mo[1] += a.pres; if (a.miss) mo[a.reason] += a.miss; } rows += pcell(amtLabel(a), s.off ? 'background:#d9d9d9;' : ''); }
       const st = attStat(slot, i, 'sum');
-      rows += [1, 'ป', 'ล', 'ข'].map(x => pcell(mo[x] || '')).join('') + pcell(st.pct === null ? '' : st.pct.toFixed(1)) + '</tr>';
+      rows += [1, 'ป', 'ล', 'ข'].map(x => pcell(mo[x] || '-')).join('') + pcell(st.pct === null ? '-' : st.pct.toFixed(1)) + '</tr>';
     }
     const planned = days.filter(s => !s.off).reduce((t, s) => t + s.per, 0);
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียนรายวิชา ' + subjName(slot) + ' ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
@@ -787,8 +787,8 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const st = attStat(slot, i, term); rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) { const a = dayAmt(s, i, slot); if (a) x += a.pres; } rows += pcell(x || ''); }
-      rows += [st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('') + pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '') + '</tr>';
+      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) { const a = dayAmt(s, i, slot); if (a) x += a.pres; } rows += pcell(x || '-'); }
+      rows += [st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '-')).join('') + pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '') + '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
       <div style="margin-top:6px;font-size:14px">เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN} ของเวลาเรียนรายวิชา</div>
