@@ -109,6 +109,7 @@
     if (!(val === null && (old === null || old === '')) && val !== old) setv(sh, r, c, val);
     inp.value = rawOf(get(sh, r, c), t);
     if (t === 'pass') markPass(inp);
+    if (sh === ST && r >= 3 && (c === 8 || c === 9)) deriveSex(r);
     return true;
   }
   const markPass = (inp) => { inp.classList.toggle('ok', inp.value === 'ผ'); inp.classList.toggle('no', inp.value === 'มผ'); };
@@ -174,6 +175,7 @@
       case 'ind-del': indAdd(-1); break;
       case 'work-add': workAdd(1); break;
       case 'work-del': workAdd(-1); break;
+      case 'stupre': { const cur = U.stuPrefix === undefined ? (() => { for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) return true; return false; })() : U.stuPrefix; set({ stuPrefix: !cur }); break; }
       case 'addrows': set({ [b.dataset.key]: (U[b.dataset.key] || 0) + 5 }); break;
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
@@ -255,17 +257,28 @@
     </div><p class="hint">ข้อมูลนี้เก็บแยกตามห้อง ถ้าโรงเรียนมีหลายห้องต้องกรอกในแต่ละห้อง</p></div>`;
   }
   const PREFIX = ['เด็กชาย', 'เด็กหญิง', 'นาย', 'นางสาว', 'นาง'];
+  // เพศ (คอลัมน์ G) ใช้นับชาย/หญิงในปก ปพ.5 — เดาจากคำนำหน้า/ต้นชื่อ เมื่อยังไม่ได้กรอก
+  function deriveSex(r) {
+    if (A().S.wb.get(A().S.wb.sheet(ST), r, 7)) return;
+    const t = (txt(ST, r, 8) + txt(ST, r, 9)).replace(/\s/g, '');
+    const sex = /^(เด็กชาย|ด\.?ช\.?|นาย|master)/i.test(t) ? 'ช' : /^(เด็กหญิง|ด\.?ญ\.?|นางสาว|นาง|น\.ส\.|miss)/i.test(t) ? 'ญ' : null;
+    if (sex) setv(ST, r, 7, sex);
+  }
   function vStudents() {
     const n = nStudents(), rows = Math.min(MAX_STU, Math.max(n + 3, 10, U.stuRows || 0));
+    let hasPre = false; for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) { hasPre = true; break; }
+    const showPre = U.stuPrefix === undefined ? hasPre : U.stuPrefix;
     let body = '';
     for (let i = 0; i < rows; i++) {
-      const r = 3 + i;
-      body += `<tr><td class="no">${i + 1}</td>${gcell(ST, r, 6, 'text', i, 0, { ph: 'รหัส' })}${gcell(ST, r, 3, 'text', i, 1, { ph: '13 หลัก' })}${gcell(ST, r, 7, 'sex', i, 2, { cls: 'sex' })}${gcell(ST, r, 8, 'text', i, 3)}${gcell(ST, r, 9, 'text', i, 4)}${gcell(ST, r, 10, 'text', i, 5)}${gcell(ST, r, 13, 'date', i, 6, { ph: 'วว/ดด/ปปปป' })}</tr>`;
+      const r = 3 + i; let g = 0;
+      body += `<tr><td class="no">${i + 1}</td>${showPre ? gcell(ST, r, 8, 'text', i, g++, { ph: 'เด็กชาย' }) : ''}${gcell(ST, r, 9, 'text', i, g++, { cls: 'wide', ph: showPre ? 'ชื่อ' : 'คำนำหน้า + ชื่อ' })}${gcell(ST, r, 10, 'text', i, g++, { cls: 'wide', ph: 'นามสกุล' })}</tr>`;
     }
     return `<datalist id="prefixes">${PREFIX.map(p => `<option value="${p}">`).join('')}</datalist>
-      <div class="card soft"><b>รายชื่อนักเรียน ${n} คน</b> (สูงสุด ${MAX_STU} คน)<p class="hint" style="margin:.3rem 0 0">คลิกช่องแล้วพิมพ์ · ลูกศร/Enter เลื่อนช่อง · คัดลอกตารางจาก Excel มาวาง (Ctrl+V) ที่ช่องแรกได้ทั้งตาราง · เพศกรอก ช / ญ · วันเกิดกรอก วว/ดด/ปปปป (พ.ศ.)</p></div>
-      <div class="tw fit"><table class="t sheet fit"><thead><tr><th class="no">ที่</th><th>รหัสนักเรียน</th><th>เลขประจำตัวประชาชน</th><th class="sex">เพศ</th><th>คำนำหน้า</th><th>ชื่อ</th><th>นามสกุล</th><th>วันเกิด</th></tr></thead><tbody>${body}</tbody></table></div>
-      ${rows < MAX_STU ? '<p><button class="btn" data-act="addrows" data-key="stuRows">＋ เพิ่ม 5 แถว</button></p>' : ''}`.replace(/(<input class="gc"[^>]*data-gc="3")/g, '$1 list="prefixes"');
+      <div class="card soft"><b>รายชื่อนักเรียน ${n} คน</b> (สูงสุด ${MAX_STU} คน)
+        <p class="hint" style="margin:.3rem 0 0">${showPre ? 'กรอกคำนำหน้า ชื่อ และนามสกุลแยกช่อง' : 'กรอกชื่อพร้อมคำนำหน้าในช่องชื่อ เช่น เด็กชายสมชาย — ถ้าโรงเรียนแยกคำนำหน้าไว้ต่างหาก กดปุ่ม “เพิ่มคำนำหน้า”'} · คลิกช่องแล้วพิมพ์ · ลูกศร/Enter เลื่อนช่อง · คัดลอกตารางจาก Excel มาวาง (Ctrl+V) ที่ช่องแรกได้ทั้งตาราง</p>
+        <div class="row" style="margin-top:8px"><button class="btn sm" data-act="stupre">${showPre ? '－ ซ่อนคำนำหน้า' : '＋ เพิ่มคำนำหน้า'}</button></div></div>
+      <div class="tw fit"><table class="t sheet fit"><thead><tr><th class="no">ที่</th>${showPre ? '<th>คำนำหน้า</th>' : ''}<th>${showPre ? 'ชื่อ' : 'ชื่อ (รวมคำนำหน้า)'}</th><th>นามสกุล</th></tr></thead><tbody>${body}</tbody></table></div>
+      ${rows < MAX_STU ? '<p><button class="btn" data-act="addrows" data-key="stuRows">＋ เพิ่ม 5 แถว</button></p>' : ''}`.replace(/(<input class="gc"[^>]*data-gc="0")/g, showPre ? '$1 list="prefixes"' : '$1');
   }
   const GROUPS8 = ['ภาษาไทย', 'คณิตศาสตร์', 'วิทยาศาสตร์และเทคโนโลยี', 'สังคมศึกษา ศาสนา และวัฒนธรรม', 'สุขศึกษาและพลศึกษา', 'ศิลปะ', 'การงานอาชีพและเทคโนโลยี', 'ภาษาต่างประเทศ', 'รายวิชาเพิ่มเติม'];
   function vSubjects() {
