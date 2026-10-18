@@ -182,7 +182,11 @@
       case 'asub-step': { const list = subjects().filter(x => true); const i = list.findIndex(x => x.slot === U.asub); const nx = list[i + (+k)]; if (nx) set({ asub: nx.slot }); break; }
       case 'amonth': set({ amonth: +k }); break;
       case 'aoff': subjOff(U.asub, k); break;
-      case 'aov': { const i = +b.dataset.i, cur = ovOf(U.asub, k, i), nx = { '': 'ข', 'ข': 'ป', 'ป': 'ล', 'ล': '1', 1: null }[cur === null ? '' : cur]; setOv(U.asub, k, i, nx); refresh(); break; }
+      case 'aov': {   // วนตามลำดับ: ตามรายห้อง → ข → ป → ล → 1 → 2 .. (จำนวนคาบของวันนั้น) → ตามรายห้อง
+        const i = +b.dataset.i, per = +b.dataset.per || 1, cur = ovOf(U.asub, k, i);
+        const seq = [null, 'ข', 'ป', 'ล', ...Array.from({ length: per }, (_, j) => String(j + 1))];
+        setOv(U.asub, k, i, seq[(Math.max(0, seq.indexOf(cur)) + 1) % seq.length]); refresh(); break;
+      }
       case 'aovclear': { const a = subjAtt(U.asub); for (const x of sessionsOf(U.asub, 'sum', true).filter(q => q.m === U.amonth)) if (a.ov) delete a.ov[x.k]; A().markDirty(); refresh(); break; }
       case 'aprint': A().showPreview(sPages(U.asub, U.amonth)); break;
       case 'aprintall': A().showPreview(sPages(U.asub, 'all')); break;
@@ -579,11 +583,20 @@
     return out;
   }
   // สถานะของนักเรียนคนที่ i ในวันที่ s จากเวลาเรียนรายห้อง: '1' มา · 'ป' 'ล' 'ข' · null ยังไม่เช็ค
-  function chOf(s, i, slot) {
-    const o = slot ? ((getAtt(slot).ov || {})[s.k] || '')[i] : null;
-    if (o && o !== '-') return o;                                   // ครูประจำวิชาแก้เฉพาะวิชานี้
-    return homeCh(s, i);
+  // จำนวนคาบที่นักเรียนเรียนในวันนั้น: { pres: คาบที่มา, miss: คาบที่ไม่ได้เรียน, reason: 'ข' | 'ป' | 'ล' } · null = ยังไม่เช็ค
+  // ครูประจำวิชาแก้ทับได้ด้วยเลข 1-9 (= เรียนกี่คาบ เช่น วันที่สอน 2 คาบ มาแค่ 1 คาบ) หรือ ข ป ล (ไม่ได้เรียนเลยวันนั้น)
+  function dayAmt(s, i, slot) {
+    const o = slot ? ovOf(slot, s.k, i) : null;
+    if (o) {
+      if (/^[1-9]$/.test(o)) { const n = Math.min(+o, s.per); return { pres: n, miss: s.per - n, reason: 'ข' }; }
+      return { pres: 0, miss: s.per, reason: o };
+    }
+    const h = homeCh(s, i); if (!h) return null;
+    return h === '1' ? { pres: s.per, miss: 0, reason: 'ข' } : { pres: 0, miss: s.per, reason: h };
   }
+  // ข้อความในช่อง: เลขคาบที่เรียน (มาไม่ครบแสดงเลขที่ได้เรียน) หรือ ข/ป/ล เมื่อไม่ได้เรียนเลย
+  const amtLabel = (a) => (!a ? '' : a.pres > 0 ? String(a.pres) : a.reason);
+  const amtCls = (a) => (!a ? '' : a.miss === 0 ? ' ok' : a.pres > 0 ? ' part' : ' no');
   const homeCh = (s, i) => {
     const b = attBlocks()[s.m]; if (!b || s.d > b.days) return null;
     const k = attKind(get(ATT, 5 + i, b.start + s.d - 1));
@@ -600,10 +613,10 @@
   function attStat(slot, i, term) {
     const r = { plan: 0, checked: 0, present: 0, sick: 0, leave: 0, absent: 0, pct: null };
     for (const s of sessionsOf(slot, term)) {
-      r.plan += s.per; const ch = chOf(s, i, slot);
-      if (!ch) continue;
-      r.checked += s.per;
-      if (ch === '1') r.present += s.per; else if (ch === 'ป') r.sick += s.per; else if (ch === 'ล') r.leave += s.per; else if (ch === 'ข') r.absent += s.per;
+      r.plan += s.per; const a = dayAmt(s, i, slot);
+      if (!a) continue;
+      r.checked += s.per; r.present += a.pres;
+      if (a.miss) { if (a.reason === 'ป') r.sick += a.miss; else if (a.reason === 'ล') r.leave += a.miss; else r.absent += a.miss; }
     }
     if (r.checked) r.pct = r.present * 100 / r.checked;
     return r;
@@ -644,7 +657,7 @@
     if (!list.some(s => s.slot === U.asub)) U.asub = list[0].slot;
     const idx = list.findIndex(s => s.slot === U.asub), slot = U.asub;
     const pick = `<div class="pick"><button class="btn" data-act="asub-step" data-k="-1" ${idx <= 0 ? 'disabled' : ''}>‹</button><select data-f="asub" aria-label="เลือกวิชา">${list.map(s => `<option value="${s.slot}"${s.slot === slot ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select><button class="btn" data-act="asub-step" data-k="1" ${idx >= list.length - 1 ? 'disabled' : ''}>›</button></div>`;
-    const info = '<div class="card soft"><b>ดึงจากเวลาเรียนรายห้องอัตโนมัติ</b><p class="hint" style="margin:.3rem 0 0">ครูประจำชั้นเช็คชื่อทุกวันที่ “เวลาเรียนรายห้อง” — ถ้านักเรียนมาในวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น · <b>ครูประจำวิชาแก้เฉพาะวิชาของตนได้</b> ถ้านักเรียนเรียนไม่เต็มวัน (เช่น ออกก่อนคาบนี้) โดยแตะช่อง: ตามรายห้อง → ข → ป → ล → ✓ → กลับตามรายห้อง ช่องที่แก้จะมีเส้นประล้อมรอบ</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tsub" data-k="att">ไปเช็คชื่อรายห้อง</button></div></div>';
+    const info = '<div class="card soft"><b>ดึงจากเวลาเรียนรายห้องอัตโนมัติ</b><p class="hint" style="margin:.3rem 0 0">ครูประจำชั้นเช็คชื่อทุกวันที่ “เวลาเรียนรายห้อง” — ถ้านักเรียนมาในวันนั้น ถือว่ามาทุกวิชาที่สอนในวันนั้น · <b>ครูประจำวิชาแก้เฉพาะวิชาของตนได้</b> ถ้านักเรียนเรียนไม่เต็มวัน (เช่น ออกก่อนคาบนี้) โดยแตะช่อง: ตามรายห้อง → ข → ป → ล → 1 → 2 (เลข = จำนวนคาบที่ได้เรียนวันนั้น) → กลับตามรายห้อง ช่องที่แก้จะมีเส้นประล้อมรอบ · ตัวเลขในช่อง = จำนวนคาบที่เรียน (วิชาที่สอน 2 คาบต่อวัน มาครบแสดง 2)</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tsub" data-k="att">ไปเช็คชื่อรายห้อง</button></div></div>';
     if (!weekPeriods(slot)) return pick + info + `<div class="card empty"><b>วิชานี้ยังไม่ได้ตั้งตารางสอน</b>กรอกจำนวนคาบต่อวันก่อน<br><br><button class="btn primary" data-act="tsub" data-k="sched">ไปตั้งตารางสอน</button></div>`;
     const all = sessionsOf(slot, 'sum', true), months = MONTHS.map((_, m) => m).filter(m => all.some(s => s.m === m));
     let m = U.amonth; if (m === undefined || !months.includes(m)) m = months[0]; U.amonth = m;
@@ -659,8 +672,9 @@
       const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 };
       for (const s of days) {
         if (s.off) { body += '<td class="offc"></td>'; continue; }
-        const ch = chOf(s, i, slot), ov = ovOf(slot, s.k, i); if (ch) mo[ch === '1' ? 1 : ch] += s.per;
-        body += `<td class="gtd"><button class="pc att${ch === '1' ? ' ok' : ch ? ' no' : ''}${ov ? ' ovr' : ''}" data-act="aov" data-k="${s.k}" data-i="${i}" title="${ov ? 'แก้เฉพาะวิชานี้ (กดเพื่อเปลี่ยน)' : 'ตามเวลาเรียนรายห้อง — กดเพื่อแก้เฉพาะวิชานี้'}">${ch === '1' ? '✓' : ch || '&nbsp;'}</button></td>`;
+        const a = dayAmt(s, i, slot), ov = ovOf(slot, s.k, i);
+        if (a) { mo[1] += a.pres; if (a.miss) mo[a.reason] += a.miss; }
+        body += `<td class="gtd"><button class="pc att${amtCls(a)}${ov ? ' ovr' : ''}" data-act="aov" data-k="${s.k}" data-i="${i}" data-per="${s.per}" title="${ov ? 'แก้เฉพาะวิชานี้ (กดเพื่อเปลี่ยน)' : 'ตามเวลาเรียนรายห้อง — กดเพื่อแก้เฉพาะวิชานี้'}">${amtLabel(a) || '&nbsp;'}</button></td>`;
       }
       const st = attStat(slot, i, 'sum'), low = st.pct !== null && st.pct < PCT_MIN, c = (x) => `<td class="ro">${x || '-'}</td>`;
       body += c(mo[1]) + c(mo['ป']) + c(mo['ล']) + c(mo['ข']) + `<td class="ro${low ? ' gbad' : ''}">${fmtPct(st.pct)}</td></tr>`;
@@ -688,14 +702,14 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (const s of days) { const v = s.off ? null : chOf(s, i, slot); rows += pcell(v === '1' ? '/' : v || '', s.off ? 'background:#d9d9d9;' : ''); }
-      const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 }; for (const s of days) if (!s.off) { const v = chOf(s, i, slot); if (v) mo[v === '1' ? 1 : v] += s.per; }
+      const mo = { 1: 0, 'ป': 0, 'ล': 0, 'ข': 0 };
+      for (const s of days) { const a = s.off ? null : dayAmt(s, i, slot); if (a) { mo[1] += a.pres; if (a.miss) mo[a.reason] += a.miss; } rows += pcell(amtLabel(a), s.off ? 'background:#d9d9d9;' : ''); }
       const st = attStat(slot, i, 'sum');
       rows += [1, 'ป', 'ล', 'ข'].map(x => pcell(mo[x] || '')).join('') + pcell(st.pct === null ? '' : st.pct.toFixed(1)) + '</tr>';
     }
     const planned = days.filter(s => !s.off).reduce((t, s) => t + s.per, 0);
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียนรายวิชา ' + subjName(slot) + ' ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
-      <div style="margin:0 0 4px">วันที่มีสอนในเดือนนี้ <b>${days.filter(s => !s.off).length}</b> วัน (${planned} คาบ) &nbsp; ครูผู้สอน ${esc(txt(SUBJ, 5 + slot, 6) || '-')} &nbsp; เครื่องหมาย: / = มา · ป · ล · ข · ช่องสีเทา = ไม่มีสอน</div>
+      <div style="margin:0 0 4px">วันที่มีสอนในเดือนนี้ <b>${days.filter(s => !s.off).length}</b> วัน (${planned} คาบ) &nbsp; ครูผู้สอน ${esc(txt(SUBJ, 5 + slot, 6) || '-')} &nbsp; ตัวเลข = จำนวนคาบที่เรียนในวัน · ข ขาด · ป ป่วย · ล ลา (ไม่ได้เรียนเลย) · ช่องสีเทา = ไม่มีสอน</div>
       <table style="border-collapse:collapse;font-size:14px;width:100%">${h}${rows}</table>
       <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
@@ -708,7 +722,7 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const st = attStat(slot, i, 'sum'); rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
-      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) if (chOf(s, i, slot) === '1') x += s.per; rows += pcell(x || ''); }
+      for (const m of ms) { let x = 0; for (const s of sessionsOf(slot, 'sum').filter(q => q.m === m)) { const a = dayAmt(s, i, slot); if (a) x += a.pres; } rows += pcell(x || ''); }
       rows += [st.present, st.sick, st.leave, st.absent, st.checked].map(x => pcell(x || '')).join('') + pcell(fmtPct(st.pct), st.pct !== null && st.pct < PCT_MIN ? 'font-weight:700;' : '') + '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
