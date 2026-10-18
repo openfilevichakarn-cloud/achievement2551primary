@@ -195,7 +195,7 @@ def main():
         for k, cd in ws.column_dimensions.items():
             lo, hi = cd.min, cd.max
             if lo is None: continue
-            for i in range(lo, min(hi, 60) + 1):
+            for i in range(lo, min(hi, ws.max_column) + 1):
                 cw[i] = {"w": cd.width, "h": 1 if cd.hidden else 0}
         rh = {}
         for r, rd in ws.row_dimensions.items():

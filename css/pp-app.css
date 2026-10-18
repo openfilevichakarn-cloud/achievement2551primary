@@ -182,3 +182,10 @@ table.xl td.sx{font-family:'TH Sarabun New','Sarabun',sans-serif}
 .mvx:hover{color:var(--err)}
 .mvchip.on{background:#fff7ed;border-color:#f59e0b;color:#92400e}
 input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
+
+/* ลายน้ำ (เว็บตัวอย่าง) */
+.wm-layer{position:fixed;inset:-30%;z-index:9000;pointer-events:none;user-select:none;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;gap:110px 140px;transform:rotate(-28deg);overflow:hidden}
+.wm-layer span{font:700 34px/1 'Sarabun',sans-serif;color:rgba(220,38,38,.11);white-space:nowrap}
+.pp-page{position:relative}
+.pp-page .wm-layer{position:absolute;inset:-25%;gap:150px 120px;z-index:5}
+.pp-page .wm-layer span{font-size:46px;color:rgba(220,38,38,.13)}

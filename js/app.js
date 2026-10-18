@@ -85,7 +85,7 @@
 
   async function loadTemplate() {
     if (S.template) return S.template;
-    const resp = await fetch('data/template.json?v=' + (CFG.BUILD || ''));
+    const resp = await fetch((CFG.TEMPLATE_URL || 'data/template.json') + '?v=' + (CFG.BUILD || ''));
     if (!resp.ok) throw new Error('ไม่พบข้อมูลโปรแกรม (data/template.json)');
     return (S.template = await resp.json());
   }
@@ -494,6 +494,8 @@
   }
 
   // ---------------------------------------------------------------- พิมพ์
+  // เว็บตัวอย่าง: ลายน้ำทุกหน้าจอและทุกหน้าที่พิมพ์
+  function wmLayer(n) { return CFG.WATERMARK ? `<div class="wm-layer" aria-hidden="true">${`<span>${esc(CFG.WATERMARK)}</span>`.repeat(n)}</div>` : ''; }
   const PX = 96 / 25.4;
   function usedRows(name) { return R.parseRange(viewArea(name)).r2; }
   // แบ่งชีทเป็นหน้ากระดาษ A4: ย่อให้พอดีความกว้าง แล้วตัดหน้าตามเส้นแบ่งหน้าของไฟล์หรือเมื่อเต็มหน้า
@@ -513,7 +515,7 @@
     let zoom = pr.scale && !pr.fitPage ? pr.scale / 100 : 1;
     if (tw * zoom > availW) zoom = availW / tw;
     if (pr.fitPage && pr.fh === 1 && th * zoom > availH) zoom = Math.min(zoom, availH / th);
-    zoom = Math.max(0.25, zoom * 0.985);
+    zoom = Math.max(0.1, zoom * 0.985);
     const brk = new Set(pr.breaks || []), pages = [];
     let start = a.r1, acc = 0;
     for (let r = a.r1; r <= a.r2; r++) {
@@ -541,7 +543,7 @@
   function showPreview(blocks) {
     if (!blocks.length) return;
     const root = $('#print-root');
-    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}" style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div></section>`).join('');
+    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}" style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
     if (!bar) {
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);
@@ -564,6 +566,15 @@
 
   // ---------------------------------------------------------------- เริ่มต้น
   function boot() {
+    if (CFG.WATERMARK) document.body.insertAdjacentHTML('beforeend', wmLayer(80));
+    if (CFG.SAMPLE_DIR) {   // เว็บตัวอย่าง: ปุ่มคืนค่าข้อมูลตัวอย่าง
+      $('#save-now').insertAdjacentHTML('beforebegin', '<button id="sample-reset" class="btn" title="ล้างการแก้ไขทั้งหมด กลับเป็นข้อมูลตัวอย่างเดิม">คืนค่าตัวอย่าง</button>');
+      $('#sample-reset').onclick = async () => {
+        const yes = await modal('คืนค่าข้อมูลตัวอย่าง', '<p>ล้างการแก้ไขทั้งหมดในเบราว์เซอร์นี้ แล้วกลับเป็นข้อมูลตัวอย่างเดิม</p>', [{ label: 'ยกเลิก', value: false }, { label: 'คืนค่า', value: true, primary: true }]);
+        if (!yes) return;
+        S.dirty = false; clearTimeout(S.saveTimer); backend.reset(); location.reload();
+      };
+    }
     $('#login-form').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#login-code').value, $('#login-remember').checked); });
     $('#logout').onclick = logout;
     $('#save-now').onclick = () => save(true);

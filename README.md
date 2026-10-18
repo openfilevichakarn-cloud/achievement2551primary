@@ -13,6 +13,7 @@
 | `admin.html` `register.html` | หลังบ้านผู้ดูแล / หน้าสมัครและชำระเงิน |
 | `sql/schema.sql` | โครงสร้างฐานข้อมูล Supabase ทั้งหมด (รันไฟล์เดียว) |
 | `supabase/functions/auto-register` | ตรวจสลิปและออกรหัสอัตโนมัติ (ดู `docs/auto-register.md`) |
+| `demo/` | เว็บตัวอย่างให้ลูกค้าทดลอง (เปิดที่ `/demo/`) ข้อมูลนักเรียนสมมติ 40 คน ทุกชั้น มีลายน้ำ ไม่เชื่อม Supabase สร้างด้วย `python3 tools/build_demo.py` และ `node tools/make_demo_sample.js` |
 | `tools/build_template.py` | สร้าง `data/template.json` จากไฟล์ `.xlsb` |
 | `tools/verify_engine.js` | ตรวจ engine เทียบค่าที่เก็บในไฟล์ |
 

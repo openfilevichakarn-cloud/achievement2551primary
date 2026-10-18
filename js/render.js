@@ -186,7 +186,7 @@
           if (sb && mk(sb.b[3], 'bottom')) sp.push(mk(sb.b[3], 'bottom'));
         }
         // ข้อความยาวที่ไม่ตัดบรรทัด ไหลทับช่องถัดไปที่ว่างได้ เหมือน Excel
-        if (st && !st.a[2] && typeof v === 'string' && v !== '' && (!st.a[0] || st.a[0] === 'left')) {
+        if (st && !st.a[2] && typeof v === 'string' && v !== '' && (!st.a[0] || st.a[0] === 'left' || st.a[0] === 'general')) {
           const nc = a ? a.c2 + 1 : c + 1;
           let nx = wb.get(sh, r, nc); if (nx && nx.isRange) nx = null;
           if ((nx === null || nx === '') && !covered.has(P.KEY(r, nc)) && !anchors.has(P.KEY(r, nc))) sp.push('overflow:visible');

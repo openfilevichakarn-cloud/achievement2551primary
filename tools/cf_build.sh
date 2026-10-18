@@ -5,6 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf dist && mkdir dist
 for f in *.html; do cp "$f" dist/; done
-for d in css js fonts img data; do [ -d "$d" ] && cp -r "$d" dist/; done
+for d in css js fonts img data demo; do [ -d "$d" ] && cp -r "$d" dist/; done
 printf 'User-agent: *\nDisallow: /admin.html\n' > dist/robots.txt
 echo "built -> dist/ ($(find dist -type f | wc -l) files)"

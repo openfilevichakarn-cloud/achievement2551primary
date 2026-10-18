@@ -103,6 +103,9 @@ def main():
     for s in d['sheets']:
         for ref in CLEAR.get(s['name'], []):
             if ref in s['cells']: s['cells'][ref].pop('v', None)
+        if re.match(r'^(คุณลักษณะ|ค่านิยม) ', s['name']):   # ค่าตัวอย่างของนักเรียนคนแรก ๆ (แถวข้อมูลตั้งแต่ 5)
+            for k, c in s['cells'].items():
+                if c.get('u') and 'f' not in c and 'v' in c and int(re.sub(r'\D', '', k)) >= 5: c.pop('v')
         if s['name'].startswith('กิจกรรม '):
             for c in s['cells'].values():
                 if c.get('u') and c.get('v') == '/': c.pop('v')
