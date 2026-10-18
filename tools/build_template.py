@@ -18,6 +18,12 @@ SCRUB = {'ข้อมูลพื้นฐาน': ['C2', 'C3', 'C4', 'C5', 'C6
 CLEAR = {'รายวิชา': ['B6', 'C6', 'D6', 'E6', 'F6']}
 
 
+def colnum(c):
+    n = 0
+    for ch in c: n = n * 26 + ord(ch) - 64
+    return n
+
+
 def sheet_paths(z):
     wb = z.read('xl/workbook.xml').decode('utf8'); rels = z.read('xl/_rels/workbook.xml.rels').decode('utf8')
     rid = {}
@@ -103,6 +109,11 @@ def main():
     for s in d['sheets']:
         for ref in CLEAR.get(s['name'], []):
             if ref in s['cells']: s['cells'][ref].pop('v', None)
+        if s['name'] == 'ปฏิทิน':   # วันเรียนและหมายเหตุวันหยุดของปีการศึกษา 2566 ในไฟล์ต้นฉบับ — ให้ผู้ใช้สร้างปฏิทินของปีตัวเองในหน้า ข้อมูล > ปฏิทิน
+            for k, c in s['cells'].items():
+                m = re.fullmatch(r'([A-Z]+)(\d+)', k); col, row = m[1], int(m[2])
+                if 'f' in c: continue
+                if (5 <= row <= 17 and row != 11 and 2 <= colnum(col) <= 32) or k == 'A2' or (21 <= row <= 30 and col in ('M', 'Z')): c.pop('v', None)
         if re.match(r'^(คุณลักษณะ|ค่านิยม) ', s['name']):   # ค่าตัวอย่างของนักเรียนคนแรก ๆ (แถวข้อมูลตั้งแต่ 5)
             for k, c in s['cells'].items():
                 if c.get('u') and 'f' not in c and 'v' in c and int(re.sub(r'\D', '', k)) >= 5: c.pop('v')

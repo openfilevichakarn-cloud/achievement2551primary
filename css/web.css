@@ -25,3 +25,18 @@ table.sheet td.ro.gok{background:var(--lv3bg);color:var(--lv3);font-weight:700}
 table.sheet td.ro.gmid{background:var(--lv2bg);color:var(--lv2);font-weight:700}
 table.sheet td.ro.gbad{background:var(--lv0bg);color:var(--lv0);font-weight:700}
 .docviewer .sheet-head h2{flex:none}
+
+/* ปฏิทินวันเรียน */
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:12px}
+.mcard{margin:0}
+.mcard .cdh,.mcard .cdg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:6px}
+.mcard .cdh i{font-style:normal;font-size:.75rem;color:var(--muted);text-align:center}
+.mcard .cd{border:1px solid var(--line);background:var(--bg);border-radius:8px;min-height:34px;cursor:pointer;font-size:.92rem;color:var(--muted)}
+.mcard .cd.we{opacity:.6}
+.mcard .cd.on{background:var(--lv3bg);color:var(--lv3);border-color:transparent;font-weight:700;opacity:1}
+.mcard .cd:hover{border-color:var(--brand)}
+.mcard .blank{min-height:34px}
+/* เช็คเวลาเรียน */
+table.att th.dh{min-width:34px;cursor:pointer;font-size:.8rem}
+table.att td.gtd .pc{min-width:34px;min-height:34px;font-size:.95rem;border-radius:6px;padding:0}
+table.att th small{font-weight:400}

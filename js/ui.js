@@ -176,6 +176,19 @@
       case 'work-add': workAdd(1); break;
       case 'work-del': workAdd(-1); break;
       case 'stupre': { const cur = U.stuPrefix === undefined ? (() => { for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) return true; return false; })() : U.stuPrefix; set({ stuPrefix: !cur }); break; }
+      case 'tsub': set({ tsub: k }); break;
+      case 'calgen': onGenCal(); break;
+      case 'calsample': { const y = yearBE(); ['16/05/' + y, '31/10/' + y, '01/11/' + y, '31/03/' + (y + 1)].forEach((v, i) => setv(CAL, TERM_CELLS[i][1], TERM_CELLS[i][0], v)); refresh(); break; }
+      case 'calnext': if (!calTotal()) { A().toast('ยังไม่ได้เลือกวันเรียนในปฏิทิน', 'warn'); break; } set({ tsub: 'att' }); break;
+      case 'calprint': A().printSheets([CAL]); break;
+      case 'caltog': calToggle(b); break;
+      case 'attm': set({ attMonth: +k }); break;
+      case 'attcyc': attCycle(b); break;
+      case 'attday': attFill(U.attMonth, +b.dataset.d); refresh(); break;
+      case 'attfill': attFill(U.attMonth); refresh(); break;
+      case 'attclear': attClear(U.attMonth); break;
+      case 'attprint': A().showPreview(attPages(U.attMonth)); break;
+      case 'attprintall': A().showPreview(attPages('all')); break;
       case 'addrows': set({ [b.dataset.key]: (U[b.dataset.key] || 0) + 5 }); break;
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
@@ -190,6 +203,13 @@
   function fieldChange(x) {
     const [sh, r, c, t] = x.dataset.f.split('|');
     if (x.dataset.f === 'subj') { U.subj = +x.value; refresh(); return; }
+    if (x.dataset.f === 'cal-notes') { setHolidayLines(x.value); return; }
+    if (x.dataset.f.startsWith('cal-term')) {
+      const i = +x.dataset.f.split('|')[1], k = parseTh(x.value);
+      if (x.value.trim() && k === null) { A().toast('กรอกวันที่เป็น วว/ดด/ปปปป (พ.ศ.)', 'warn'); return; }
+      const v = k === null ? null : String(k % 100).padStart(2, '0') + '/' + String(Math.floor(k / 100) % 100).padStart(2, '0') + '/' + Math.floor(k / 10000);
+      setv(CAL, TERM_CELLS[i][1], TERM_CELLS[i][0], v); x.value = v || ''; return;
+    }
     if (x.dataset.f === 'p6no') { U.p6no = +x.value; refresh(); return; }
     let val = t === 'num' ? parseCell('num', x.value) : (String(x.value).trim() === '' ? null : String(x.value).trim());
     if (t === 'date') val = parseCell('date', x.value);
@@ -301,11 +321,218 @@
     return `<div class="card soft"><b>น้ำหนัก (กก.) · ส่วนสูง (ซม.) 4 ครั้งต่อปี</b><p class="hint" style="margin:.3rem 0 0">กรอกวันที่ชั่งวัดไว้ที่หัวตาราง แล้วกรอกค่าของนักเรียนแต่ละคน</p></div>
       <div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>${dts}</tr><tr><th class="no"></th><th class="stk"></th>${'<th>น้ำหนัก</th><th>ส่วนสูง</th>'.repeat(4)}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
-  function vTime() {
-    return `<div class="card"><h3>ปฏิทินและเวลาเรียน</h3>
-      <p class="hint">ตั้งวันเปิด-ปิดเรียนและวันหยุดในชีทปฏิทินก่อน แล้วจึงบันทึกเวลาเรียนรายวันของนักเรียน (กรอก 1 = มา, ป = ป่วย, ล = ลา, ข = ขาด) ทั้งสองชีทกรอกแบบตาราง Excel</p>
-      <div class="row"><button class="btn primary" data-act="doc" data-name="ปฏิทิน">เปิดชีทปฏิทิน</button><button class="btn primary" data-act="doc" data-name="เวลาเรียน">เปิดชีทเวลาเรียน</button><button class="btn" data-act="doc" data-name="ข้อมูลเพิ่มเติม">ข้อมูลนักเรียนเพิ่มเติม (บิดามารดา ผู้ปกครอง)</button></div></div>`;
+  // ---------------------------------------------------------------- ปฏิทินวันเรียน · เวลาเรียน
+  // ชีท "ปฏิทิน": แถว 5-10 = พ.ค.-ต.ค. (เทอม 1) · แถว 12-17 = พ.ย.-เม.ย. (เทอม 2) · คอลัมน์ B.. = วันที่ 1..31
+  // ใส่อักษรย่อวันในสัปดาห์ในวันที่เรียน (จ อ พ พฤ ศ) หรือ ส / อา สำหรับเรียนชดเชย — ชีท "เวลาเรียน" ดึงวันเรียนไปเองอัตโนมัติ
+  const CAL = 'ปฏิทิน', ATT = 'เวลาเรียน';
+  const MONTHS = ['พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน'];
+  const MON_G = [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];   // เดือนแบบ JS (0 = ม.ค.)
+  const DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const calRow = (m) => (m < 6 ? 5 + m : 6 + m);
+  const yearBE = () => num(SUBJ, 4, 2) || 2566;
+  const monthBE = (m) => yearBE() + (m >= 8 ? 1 : 0);
+  const daysIn = (m) => new Date(Date.UTC(monthBE(m) - 543, MON_G[m] + 1, 0)).getUTCDate();
+  const dow = (m, d) => new Date(Date.UTC(monthBE(m) - 543, MON_G[m], d)).getUTCDay();
+  const calDay = (m, d) => txt(CAL, calRow(m), 1 + d).trim();     // อักษรวันในปฏิทิน ('' = ไม่ใช่วันเรียน)
+  const calCount = (m) => { let n = 0; for (let d = 1; d <= daysIn(m); d++) if (calDay(m, d)) n++; return n; };
+  const calTotal = () => MONTHS.reduce((a, _, m) => a + calCount(m), 0);
+  const TERM_CELLS = [['AP', 2], ['AQ', 2], ['AP', 3], ['AQ', 3]];   // วันเริ่ม/สิ้นสุดของภาคเรียน (เก็บเป็นข้อความ วว/ดด/ปปปป) นอกพื้นที่พิมพ์
+  const parseTh = (t) => { const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/.exec(String(t || '').trim()); if (!m) return null; let y = +m[3]; if (y < 2400) y += 543; return y * 10000 + (+m[2]) * 100 + (+m[1]); };
+  const termDate = (i) => txt(CAL, TERM_CELLS[i][1], TERM_CELLS[i][0]);
+  const thaiLong = (key) => { const y = Math.floor(key / 10000), mo = Math.floor(key / 100) % 100, d = key % 100; return d + ' ' + MONTHS[MON_G.indexOf(mo - 1)] + ' ' + y; };
+
+  function genCalendar() {
+    const t = [0, 1, 2, 3].map(i => parseTh(termDate(i)));
+    if (t.some(x => x === null) || t[0] > t[1] || t[2] > t[3]) { A().toast('กรอกวันเปิดและวันปิดเรียนของทั้ง 2 ภาคเรียนให้ครบก่อน', 'warn'); return false; }
+    for (let m = 0; m < 12; m++) for (let d = 1; d <= 31; d++) {
+      let letter = null;
+      if (d <= daysIn(m)) {
+        const key = monthBE(m) * 10000 + (MON_G[m] + 1) * 100 + d, w = dow(m, d);
+        if (((key >= t[0] && key <= t[1]) || (key >= t[2] && key <= t[3])) && w >= 1 && w <= 5) letter = DOW[w];
+      }
+      if (calDay(m, d) !== (letter || '')) setv(CAL, calRow(m), 1 + d, letter);
+    }
+    setv(CAL, 2, 1, thaiLong(t[0]) + ' - ' + thaiLong(t[3]));
+    return true;
   }
+  async function onGenCal() {
+    if (calTotal() > 0) {
+      const yes = await A().modal('สร้างปฏิทินใหม่', '<p>ปฏิทินที่กำหนดไว้แล้ว (รวมวันหยุดที่ปิดไว้) จะถูกแทนที่ด้วยวันจันทร์-ศุกร์ตามช่วงภาคเรียนที่ระบุ</p>', [{ label: 'ยกเลิก', value: false }, { label: 'สร้างปฏิทินใหม่', value: true, primary: true }]);
+      if (!yes) return;
+    }
+    if (genCalendar()) { refresh(); A().toast('สร้างปฏิทินแล้ว — คลิกวันที่หยุด (วันหยุดราชการ ฯลฯ) เพื่อปิดวันเรียน', 'ok'); }
+  }
+  function calToggle(b) {
+    const m = +b.dataset.m, d = +b.dataset.d, cur = calDay(m, d);
+    setv(CAL, calRow(m), 1 + d, cur ? null : DOW[dow(m, d)]);
+    b.classList.toggle('on', !cur);
+    const card = b.closest('.mcard'); if (card) $('.mc-n', card).textContent = calCount(m) + ' วัน';
+    const t = $('#cal-total'); if (t) t.textContent = calTotal();
+  }
+  // สีพื้นของช่องวันที่ในชีทปฏิทิน (ในไฟล์ต้นฉบับเป็นสีคงที่ของปี 2566) — คำนวณใหม่ตามวันในสัปดาห์จริงของปีการศึกษาที่เลือก
+  function beforeSheet(name) {
+    if (name !== CAL) return;
+    const t = [0, 1, 2, 3].map(i => parseTh(termDate(i))), bg = {};
+    const inTerm = (k) => t.every(x => x !== null) && ((k >= t[0] && k <= t[1]) || (k >= t[2] && k <= t[3]));
+    for (let m = 0; m < 12; m++) for (let d = 1; d <= 31; d++) {
+      const ref = L(1 + d) + calRow(m);
+      if (d > daysIn(m)) { bg[ref] = '#000000'; continue; }
+      const w = dow(m, d), on = !!calDay(m, d), key = monthBE(m) * 10000 + (MON_G[m] + 1) * 100 + d;
+      bg[ref] = on ? (w === 0 ? '#ff0000' : w === 6 ? '#8064a2' : '#ffffff') : w === 0 ? '#ff0000' : w === 6 ? '#8064a2' : inTerm(key) ? '#ffff00' : '#bfbfbf';
+    }
+    A().S.view.bg[CAL] = bg;
+  }
+  function holidayLines() {
+    const out = [];
+    for (let r = 21; r <= 30; r++) { const v = txt(CAL, r, 'M'); if (v.trim()) out.push(v.trim()); }
+    for (let r = 21; r <= 29; r++) { const v = txt(CAL, r, 'Z'); if (v.trim()) out.push(v.trim()); }
+    return out;
+  }
+  function setHolidayLines(text) {
+    const lines = String(text).split('\n').map(x => x.trim()).filter(Boolean).slice(0, 19);
+    for (let i = 0; i < 10; i++) setv(CAL, 21 + i, 'M', lines[i] || null);
+    for (let i = 0; i < 9; i++) setv(CAL, 21 + i, 'Z', lines[10 + i] || null);
+  }
+  function monthCard(m) {
+    const first = dow(m, 1), nd = daysIn(m);
+    let cells = '<span class="cdh">' + DOW.map(x => `<i>${x}</i>`).join('') + '</span><span class="cdg">';
+    for (let i = 0; i < first; i++) cells += '<i class="blank"></i>';
+    for (let d = 1; d <= nd; d++) { const w = dow(m, d); cells += `<button class="cd${calDay(m, d) ? ' on' : ''}${w === 0 || w === 6 ? ' we' : ''}" data-act="caltog" data-m="${m}" data-d="${d}">${d}</button>`; }
+    return `<div class="card mcard"><div class="row sp"><b>${MONTHS[m]} ${monthBE(m)}</b><span class="mc-n chip">${calCount(m)} วัน</span></div>${cells}</span></div>`;
+  }
+  function vTime() {
+    const tabs = `<div class="bar">${seg([['cal', '1. ปฏิทินวันเรียน'], ['att', '2. กรอกเวลาเรียน']], U.tsub || 'cal', 'tsub')}</div>`;
+    return tabs + ((U.tsub || 'cal') === 'att' ? vAttendance() : vCalendar());
+  }
+  function vCalendar() {
+    const f = (i, label) => `<label class="fld"><span>${label}</span><input data-f="cal-term|${i}" value="${esc(termDate(i))}" placeholder="วว/ดด/ปปปป (พ.ศ.)"></label>`;
+    const total = calTotal(), t1 = [0, 1, 2, 3, 4, 5].reduce((a, m) => a + calCount(m), 0);
+    return `<div class="card"><h3>กำหนดภาคเรียน ปีการศึกษา ${yearBE()}</h3>
+      <div class="grid2">${f(0, 'ภาคเรียนที่ 1 · วันเปิดเรียน')}${f(1, 'ภาคเรียนที่ 1 · วันปิดเรียน')}${f(2, 'ภาคเรียนที่ 2 · วันเปิดเรียน')}${f(3, 'ภาคเรียนที่ 2 · วันปิดเรียน')}</div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" data-act="calgen">สร้างปฏิทินวันเรียน (จันทร์–ศุกร์)</button><button class="btn sm" data-act="calsample">ใช้ช่วงภาคเรียนตัวอย่าง</button></div>
+      <p class="hint">ระบบใส่วันจันทร์–ศุกร์ในช่วงที่กำหนดเป็นวันเรียน แล้วคลิกวันที่ด้านล่างเพื่อปิดวันหยุด (หรือเปิดวันเสาร์-อาทิตย์ที่เรียนชดเชย) ปีการศึกษาแก้ได้ที่ ข้อมูล › โรงเรียน</p></div>
+      <div class="card soft row sp"><span>จำนวนวันเรียนทั้งปี <b id="cal-total">${total}</b> วัน <span class="hint">(ภาคเรียนที่ 1 = ${t1} วัน)</span></span>
+        <span class="row"><button class="btn" data-act="calprint">พิมพ์ปฏิทิน</button><button class="btn primary" data-act="calnext">เสร็จแล้ว → กรอกเวลาเรียน</button></span></div>
+      <div class="months">${MONTHS.map((_, m) => monthCard(m)).join('')}</div>
+      <div class="card"><h3>หมายเหตุวันหยุด (แสดงใต้ปฏิทินที่พิมพ์)</h3>
+        <textarea class="in" rows="5" data-f="cal-notes" placeholder="บรรทัดละ 1 วัน เช่น&#10;พ. 17 พฤษภาคม วันพืชมงคล&#10;ศ. 28 กรกฎาคม วันเฉลิมพระชนมพรรษา ร.10">${esc(holidayLines().join('\n'))}</textarea>
+        <p class="hint">สูงสุด 19 บรรทัด</p></div>`;
+  }
+
+  // ---- เวลาเรียนรายเดือน
+  // ชีท "เวลาเรียน": 12 บล็อกต่อเนื่องตามเดือน พ.ค.→เม.ย. แต่ละบล็อก = ช่องวันที่ 1..n แล้วตามด้วยสรุป มา ป ล ข
+  function attBlocks() {
+    const sh = WB().sheet(ATT), out = [];
+    for (let c = 3; c <= sh.maxC; c++) {
+      if (String(txt(ATT, 3, c)) !== '1') continue;
+      let d = 1; while (String(txt(ATT, 3, c + d)) === String(d + 1)) d++;
+      out.push({ start: c, days: d, sum: c + d });
+    }
+    return out;
+  }
+  const MARK = { 1: '✓', 'ข': 'ข', 'ป': 'ป', 'ล': 'ล' };
+  const attKind = (v) => (v === 1 || v === '1' ? 1 : MARK[v] ? v : null);
+  function vAttendance() {
+    const n = nStudents(), blocks = attBlocks();
+    if (calTotal() === 0) return '<div class="card empty"><b>ยังไม่ได้สร้างปฏิทินวันเรียน</b>ต้องกำหนดวันเรียนก่อน ระบบจึงจะรู้ว่าแต่ละเดือนมีวันเรียนกี่วัน<br><br><button class="btn primary" data-act="tsub" data-k="cal">ไปสร้างปฏิทิน</button></div>';
+    if (!n) return '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่ ข้อมูล › นักเรียน ก่อน</div>';
+    if (blocks.length < 12) return '<div class="card empty"><b>อ่านผังเวลาเรียนไม่ได้</b>ลองเปิดชีทเวลาเรียนในเมนูเอกสาร</div>';
+    let m = U.attMonth; if (m === undefined || !calCount(m)) m = MONTHS.findIndex((_, i) => calCount(i) > 0); U.attMonth = m;
+    const mb = blocks[m], days = []; for (let d = 1; d <= mb.days; d++) if (calDay(m, d)) days.push(d);
+    const mseg = `<div class="seg" role="tablist">${MONTHS.map((nm, i) => `<button role="tab" data-act="attm" data-k="${i}" class="${i === m ? 'on' : ''}"${calCount(i) ? '' : ' disabled'}>${esc(nm.length > 7 ? nm.slice(0, 5) + '.' : nm)}</button>`).join('')}</div>`;
+    let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', body = '';
+    for (const d of days) th += `<th class="dh" data-act="attday" data-d="${d}" title="กดเพื่อเติม “มา” ทั้งห้องในวันนี้">${d}<br><small>${esc(calDay(m, d))}</small></th>`;
+    th += '<th class="ro">มา</th><th class="ro">ป่วย</th><th class="ro">ลา</th><th class="ro">ขาด</th>';
+    for (let i = 0; i < n; i++) {
+      const r = 5 + i; body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>`;
+      for (const d of days) body += attCell(r, mb.start + d - 1);
+      for (let k = 0; k < 4; k++) body += rocell(ATT, r, mb.sum + k);
+      body += '</tr>';
+    }
+    return `<div class="bar">${mseg}</div>
+      <div class="card soft row sp"><span><b>${MONTHS[m]} ${monthBE(m)}</b> · วันเรียน ${days.length} วัน <span class="hint">แตะช่อง: ว่าง → ✓ มา → ข ขาด → ป ป่วย → ล ลา → ว่าง · กดตัวเลขวันที่หัวตารางเพื่อเติม “มา” ทั้งห้อง</span></span>
+        <span class="row"><button class="btn sm" data-act="attfill">มาครบทั้งเดือน (เติมช่องว่าง)</button><button class="btn sm danger" data-act="attclear">ล้างเดือนนี้</button></span></div>
+      <div class="tw"><table class="t sheet att"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
+      <div class="card row sp" style="margin-top:12px"><span class="hint">พิมพ์เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปเวลาเรียนทั้งปี</span><span class="row"><button class="btn" data-act="attprint">พิมพ์เดือนนี้</button><button class="btn primary" data-act="attprintall">พิมพ์ทุกเดือน + สรุปทั้งปี</button></span></div>`;
+  }
+  function attCell(r, c) {
+    const k = attKind(get(ATT, r, c));
+    return `<td class="gtd"><button class="pc att${k === 1 ? ' ok' : k ? ' no' : ''}" data-act="attcyc" data-r="${r}" data-c="${c}">${k ? MARK[k] : '&nbsp;'}</button></td>`;
+  }
+  const ATT_NEXT = { '': 1, 1: 'ข', 'ข': 'ป', 'ป': 'ล', 'ล': null };
+  function attCycle(b) {
+    const r = +b.dataset.r, c = +b.dataset.c, k = attKind(get(ATT, r, c)), next = ATT_NEXT[k === null ? '' : k];
+    setv(ATT, r, c, next === undefined ? null : next);
+    b.className = 'pc att' + (next === 1 ? ' ok' : next ? ' no' : ''); b.innerHTML = next ? MARK[next] : '&nbsp;';
+    updateRo($('#view'));
+  }
+  function attFill(m, only) {
+    const n = nStudents(), mb = attBlocks()[m];
+    for (let d = 1; d <= mb.days; d++) {
+      if (!calDay(m, d) || (only && only !== d)) continue;
+      for (let i = 0; i < n; i++) { const c = mb.start + d - 1; if (get(ATT, 5 + i, c) === null) setv(ATT, 5 + i, c, 1); }
+    }
+  }
+  async function attClear(m) {
+    const yes = await A().modal('ล้างเวลาเรียน', `<p>ล้างการเช็คชื่อเดือน <b>${MONTHS[m]}</b> ของนักเรียนทุกคน</p>`, [{ label: 'ยกเลิก', value: false }, { label: 'ล้าง', value: true, primary: true }]);
+    if (!yes) return;
+    const n = nStudents(), mb = attBlocks()[m];
+    for (let d = 1; d <= mb.days; d++) for (let i = 0; i < n; i++) { const c = mb.start + d - 1; if (get(ATT, 5 + i, c) !== null) setv(ATT, 5 + i, c, null); }
+    refresh();
+  }
+
+  // ---- พิมพ์เวลาเรียน: 1 หน้า A4 แนวตั้งต่อเดือน + หน้าสรุปทั้งปี (ออกแบบใหม่ ไม่ใช้ผังชีท Excel)
+  const PF = "font-family:'TH Sarabun New','Sarabun',sans-serif;color:#000;";
+  const pcell = (x, o) => `<td style="border:1px solid #000;padding:0 2px;text-align:center;${o || ''}">${x}</td>`;
+  const sign = (label, name) => `<div>ลงชื่อ ................................................<br>(${esc(name || '................................................')})<br>${label}</div>`;
+  const realName = (r) => { const v = get(INFO, r, 2); return v === null || ph(v) ? '' : String(v); };
+  function attHead(title) {
+    return `<div style="${PF}text-align:center;line-height:1.35;margin-bottom:6px"><div style="font-size:21px;font-weight:700">${esc(title)}</div><div style="font-size:17px">โรงเรียน${esc(A().S.school.name.replace(/^โรงเรียน/, ''))} ${esc(txt(SUBJ, 2, 2))} ปีการศึกษา ${yearBE()}</div></div>`;
+  }
+  function attMonthPage(m, blocks) {
+    const n = nStudents(), mb = blocks[m], nd = daysIn(m), grey = (d) => (calDay(m, d) ? '' : 'background:#d9d9d9;');
+    let h = '<tr><th rowspan="2" style="border:1px solid #000;width:26px">ที่</th><th rowspan="2" style="border:1px solid #000;width:190px">ชื่อ - สกุล</th>';
+    for (let d = 1; d <= nd; d++) h += `<th style="border:1px solid #000;font-weight:400;width:20px;${grey(d)}">${d}</th>`;
+    h += '<th colspan="4" style="border:1px solid #000">สรุป (วัน)</th></tr><tr>';
+    for (let d = 1; d <= nd; d++) h += `<th style="border:1px solid #000;font-weight:400;font-size:12px;${grey(d)}">${esc(calDay(m, d))}</th>`;
+    h += ['มา', 'ป', 'ล', 'ข'].map(x => `<th style="border:1px solid #000;width:28px">${x}</th>`).join('') + '</tr>';
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = 5 + i; rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
+      for (let d = 1; d <= nd; d++) { const k = d <= mb.days && calDay(m, d) ? attKind(get(ATT, r, mb.start + d - 1)) : null; rows += pcell(k === 1 ? '/' : k ? k : '', grey(d)); }
+      for (let k = 0; k < 4; k++) { const v = get(ATT, r, mb.sum + k); rows += pcell(v === null || v === '-' ? '' : esc(String(v))); }
+      rows += '</tr>';
+    }
+    const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียน ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
+      <div style="margin:0 0 4px">จำนวนวันเรียนในเดือนนี้ <b>${calCount(m)}</b> วัน &nbsp; เครื่องหมาย: / = มาเรียน · ป = ป่วย · ล = ลา · ข = ขาด · ช่องสีเทา = ไม่ใช่วันเรียน</div>
+      <table style="border-collapse:collapse;font-size:14px;width:100%">${h}${rows}</table>
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+    return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+  }
+  function attYearPage(blocks) {
+    const n = nStudents(), full = calTotal();
+    let h = '<tr><th rowspan="2" style="border:1px solid #000;width:26px">ที่</th><th rowspan="2" style="border:1px solid #000;width:180px">ชื่อ - สกุล</th><th colspan="12" style="border:1px solid #000">จำนวนวันที่มาเรียน (ใต้ชื่อเดือน = วันเรียนของเดือน)</th><th rowspan="2" style="border:1px solid #000;width:44px">รวมมา</th><th rowspan="2" style="border:1px solid #000;width:44px">วันเรียน<br>ทั้งปี</th><th rowspan="2" style="border:1px solid #000;width:48px">ร้อยละ</th></tr><tr>';
+    h += MONTHS.map((nm, m) => `<th style="border:1px solid #000;font-weight:400;font-size:12px;width:34px">${esc(nm.slice(0, 3))}.<br>${calCount(m)}</th>`).join('') + '</tr>';
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = 5 + i; let tot = 0; rows += `<tr style="height:19px">${pcell(i + 1)}<td style="border:1px solid #000;padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
+      for (let m = 0; m < 12; m++) { const v = get(ATT, r, blocks[m].sum), x = typeof v === 'number' ? v : 0; tot += x; rows += pcell(calCount(m) ? (x || '') : ''); }
+      rows += pcell(tot || '') + pcell(full) + pcell(full ? (tot * 100 / full).toFixed(2) : '') + '</tr>';
+    }
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนตลอดปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+    return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+  }
+  function attPages(months) {
+    if (!calTotal()) { A().toast('ยังไม่ได้สร้างปฏิทินวันเรียน', 'warn'); return []; }
+    const blocks = attBlocks(); if (blocks.length < 12) return [];
+    const list = months === 'all' ? MONTHS.map((_, i) => i).filter(i => calCount(i)) : [months];
+    const pages = list.map(m => attMonthPage(m, blocks));
+    if (months === 'all') pages.push(attYearPage(blocks));
+    return pages;
+  }
+  const customPages = (name) => (name === ATT ? attPages('all') : null);
+
   function vBackup() {
     return `<div class="card"><h3>สำรองข้อมูล</h3><p class="hint">ดาวน์โหลดข้อมูลทุกห้องของโรงเรียนเป็นไฟล์ .json เก็บไว้ในเครื่อง และนำเข้ากลับได้เมื่อต้องการ</p>
       <div class="row"><button class="btn primary" data-act="backup">สำรองข้อมูล (ดาวน์โหลด)</button><button class="btn" data-act="restore">นำเข้าไฟล์สำรอง</button><button class="btn" data-act="rooms">จัดการห้องเรียน</button></div></div>`;
@@ -546,7 +773,7 @@
     const S = [
       ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและงาน แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
       ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>ตัวชี้วัดพิมพ์ <b>ผ</b> หรือ <b>มผ</b> (หรือกด <kbd>Space</kbd> สลับ)</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
-      ['เวลาเรียนและปฏิทิน', `<p>ตั้งปฏิทินการเรียนในชีทปฏิทินก่อน (ข้อมูล › เวลาเรียน) แล้วจึงกรอกเวลาเรียนรายวันในชีทเวลาเรียน กรอก 1 = มา · ป = ป่วย · ล = ลา · ข = ขาด</p>`],
+      ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],
       ['สำรองข้อมูล', `<p>ข้อมูลเก็บบนระบบอัตโนมัติ ควรกด <b>ข้อมูล › สำรองข้อมูล</b> เพื่อดาวน์โหลดไฟล์เก็บไว้เป็นระยะ</p>`],
     ];
@@ -555,5 +782,5 @@
       ${S.map((s, i) => `<details class="card man" id="man-${i}"${i === 0 ? ' open' : ''}><summary><span class="no">${i + 1}</span>${esc(s[0])}</summary><div class="man-body">${s[1]}</div></details>`).join('')}`;
   }
 
-  root.PPUI = { mount, go, refresh };
+  root.PPUI = { mount, go, refresh, customPages, beforeSheet };
 })(window);

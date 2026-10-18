@@ -349,6 +349,7 @@
   }
   function closeDoc() { endEdit(false); $('#docviewer').hidden = true; document.body.classList.remove('docopen'); if (window.PPUI) PPUI.refresh(); }
   function sheetHtmlFor(name, edit, area, viewOv) {
+    if (window.PPUI && PPUI.beforeSheet) PPUI.beforeSheet(name);
     return R.sheetHtml({ wb: S.wb, sheetName: name, view: viewOv ? { ...S.view, ...viewOv } : S.view, edit, area, styles: S.styles, canEdit });
   }
   function renderSheet(keep) {
@@ -532,12 +533,12 @@
     finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, prev); }
     showPreview(blocks);
   }
-  function printSheets(names) { showPreview(names.flatMap(pagesFor)); }
+  function printSheets(names) { showPreview(names.flatMap(n => (window.PPUI && PPUI.customPages && PPUI.customPages(n)) || pagesFor(n))); }
 
   function showPreview(blocks) {
     if (!blocks.length) return;
     const root = $('#print-root');
-    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}" style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
+    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
     if (!bar) {
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);
@@ -556,6 +557,14 @@
     };
     document.addEventListener('keydown', onKey);
     document.body.classList.add('previewing'); window.scrollTo(0, 0);
+    // หน้าที่ออกแบบเอง (เช่น เวลาเรียน): ย่อให้พอดีกว้างและสูงของกระดาษ
+    $$('.pp-page[data-fitw]', root).forEach(sec => {
+      const z = sec.firstElementChild, cs = getComputedStyle(sec);
+      const aw = sec.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = sec.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      z.style.zoom = 1; z.style.width = 'max-content'; z.style.margin = '0 auto';
+      const r = z.getBoundingClientRect(), k = Math.max(0.3, Math.min(1, aw / r.width, ah / r.height) * 0.99);
+      z.style.zoom = k; z.style.setProperty('--bw', (1 / k) + 'px');
+    });
   }
 
   // ---------------------------------------------------------------- เริ่มต้น
@@ -585,6 +594,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    printSheets, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms,
+    printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms,
   };
 })();
