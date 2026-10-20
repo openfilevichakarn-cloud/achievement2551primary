@@ -596,6 +596,7 @@
     return pages.map(([r1, r2]) => {
       const out = sheetHtmlFor(name, false, P.numToCol(a.c1) + r1 + ':' + P.numToCol(a.c2) + r2);
       // ขยายความสูงแถวให้เต็มหน้า A4 (หน้าที่เนื้อหาสั้นกว่าหน้ากระดาษ) — ตัวอักษรขนาดเดิม แถวห่างขึ้นตามแบบฟอร์มต้นฉบับ
+      out.html = out.html.replace(/>\(กรอก[^<]*\)</g, '>(……………………………………)<').replace(/>กรอก[^<]*</g, '><');   // ข้อความตัวอย่าง “กรอก…” ที่ยังไม่ได้กรอก ไม่พิมพ์ออกมา
       let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก

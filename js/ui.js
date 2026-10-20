@@ -321,11 +321,16 @@
       ${formInput(INFO, 11, 2, 'ชื่อ-สกุล นายทะเบียน')}${formInput(INFO, 12, 2, 'ชื่อ-สกุล หัวหน้างานวิชาการ')}
       ${formInput(INFO, 13, 2, 'ชื่อ-สกุล ครูประจำชั้น / ครูที่ปรึกษา')}
     </div><p class="hint">ข้อมูลนี้เก็บแยกตามห้อง ถ้าโรงเรียนมีหลายห้องต้องกรอกในแต่ละห้อง</p></div>
+    <div class="card"><h3>นักเรียนย้ายออก / รับเข้า ระหว่างปีการศึกษา</h3><div class="grid2">
+      ${formInput(COV1, 11, 'AH', 'ย้ายออก (ชาย) คน', { t: 'num', ph: '0' })}${formInput(COV1, 11, 'BD', 'ย้ายออก (หญิง) คน', { t: 'num', ph: '0' })}
+      ${formInput(COV1, 12, 'AH', 'รับเข้า (ชาย) คน', { t: 'num', ph: '0' })}${formInput(COV1, 12, 'BD', 'รับเข้า (หญิง) คน', { t: 'num', ph: '0' })}
+    </div><p class="hint">แสดงในปก ปพ.5 ทุกฉบับ (จำนวนนักเรียนต้นปีนับจากรายชื่อใน ข้อมูล › นักเรียน แล้วคำนวณจำนวนสิ้นปีให้)</p></div>
     <div class="card"><h3>ตราโรงเรียน</h3>
       <div class="row">${S.view.logo ? `<img src="${S.view.logo}" alt="ตราโรงเรียน" style="height:84px;width:84px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:12px">` : '<span class="hint">ยังไม่ได้ใส่ตรา</span>'}
         <button class="btn primary" data-act="logo">เลือกรูปตรา</button>${S.view.logo ? '<button class="btn danger" data-act="logo-del">ลบตรา</button>' : ''}</div>
       <p class="hint">ตราจะแสดงที่มุมซ้ายบนของปก ปพ.5 และ ปพ.6 ใช้ร่วมกันทุกชั้นทุกห้อง (ไฟล์ PNG/JPG)</p></div>`;
   }
+  const COV1 = 'ปก ปพ.5 รายชั้น 1';
   const PREFIX = ['เด็กชาย', 'เด็กหญิง', 'นาย', 'นางสาว', 'นาง'];
   // เพศ (คอลัมน์ G) ใช้นับชาย/หญิงในปก ปพ.5 — เดาจากคำนำหน้า/ต้นชื่อ เมื่อยังไม่ได้กรอก
   function deriveSex(r) {
@@ -825,6 +830,7 @@
   // เอกสารฟอร์มต้นฉบับ (ปก ปพ.5 · ปพ.6 · เล่ม ปพ.6 · คำชี้แจง · เอกสารแนบท้าย): ดูตัวอย่างแบบเดียวกับหน้าพิมพ์ (ไม่เปิดเป็นชีท Excel)
   const FORM_DOC = /^(ปก ปพ\.5 |ปพ\.6 |เล่ม ปพ\.6|คำชี้แจง ปพ\.5|เอกสารแนบท้าย)/;
   function formDocPages(name) {
+    if (/^(ปพ\.6 |เล่ม ปพ\.6)/.test(name) && !nStudents()) { A().toast('ยังไม่มีรายชื่อนักเรียน กรอกที่ ข้อมูล › นักเรียน ก่อน', 'warn'); return []; }
     if (/^ปพ\.6 /.test(name) && nStudents()) WB().setValue(name, 'K8', Math.min(U.p6no, nStudents()));
     if (/^เล่ม ปพ\.6/.test(name) && nStudents()) WB().setValue(name, 'CX4', Math.min(U.p6no, nStudents()));
     return customPages(name) || A().pagesFor(name);
