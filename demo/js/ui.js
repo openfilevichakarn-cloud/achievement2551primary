@@ -247,11 +247,12 @@
       setv(CAL, TERM_CELLS[i][1], TERM_CELLS[i][0], v); x.value = v || ''; return;
     }
     if (x.dataset.f === 'p6no') { U.p6no = +x.value; refresh(); return; }
-    if (x.dataset.f === 'bookdate') {
+    if (x.dataset.f === 'bookdate1' || x.dataset.f === 'bookdate2') {
+      const term = x.dataset.f === 'bookdate1' ? 1 : 2;
       const v = parseCell('date', x.value);
       if (x.value.trim() && typeof v !== 'number') { A().toast('กรอกวันที่เป็น วว/ดด/ปปปป (พ.ศ.)', 'warn'); return; }
-      for (const b of BOOKS) setv(b, BOOK_DATE.r, BOOK_DATE.c, v);
-      for (const [sh, ref, val] of A().issueTargets(v)) if (WB().sheet(sh)) { const m = /^([A-Z]+)(\d+)$/.exec(ref); setv(sh, +m[2], C(m[1]), val); }   // ปก ปพ.5 และ ปพ.6 ใช้วันที่เดียวกัน
+      for (const b of (term === 1 ? [BOOKS[0]] : [BOOKS[1], BOOKS[2]])) setv(b, BOOK_DATE.r, BOOK_DATE.c, v);
+      for (const [sh, ref, val] of A().issueTargets(v, term)) if (WB().sheet(sh)) { const m = /^([A-Z]+)(\d+)$/.exec(ref); setv(sh, +m[2], C(m[1]), val); }   // ปก ปพ.5 และ ปพ.6 ตามภาคเรียน
       x.value = rawOf(v, 'date'); return;
     }
     let val = t === 'num' ? parseCell('num', x.value) : (String(x.value).trim() === '' ? null : String(x.value).trim());
@@ -310,7 +311,8 @@
       ${field('ชั้น (ตามห้องที่เปิดอยู่)', `<input value="${esc(txt(SUBJ, 2, 2))}" disabled>`)}
       ${formInput(SUBJ, 4, 2, 'ปีการศึกษา', { t: 'num', ph: 'เช่น 2566' })}
       ${formInput(SUBJ, 3, 2, 'ภาคเรียนที่ (ใช้ในส่วนหัวเอกสาร)', { t: 'num', ph: '1 หรือ 2' })}
-      ${field('วันที่ออกเอกสาร ปพ.5 / ปพ.6 (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate" value="${esc(rawOf(bookDate(), 'date'))}" placeholder="เช่น 31/03/2567">`)}
+      ${field('วันที่ออกเอกสาร ภาคเรียนที่ 1 (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate1" value="${esc(rawOf(bookDate(1), 'date'))}" placeholder="เช่น 31/10/2566">`)}
+      ${field('วันที่ออกเอกสาร ภาคเรียนที่ 2 และรวมทั้งปี (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate2" value="${esc(rawOf(bookDate(2), 'date'))}" placeholder="เช่น 31/03/2567">`)}
       ${formInput(INFO, 4, 2, 'สังกัดระดับกรม')}${formInput(INFO, 8, 2, 'สังกัดระดับจังหวัด / เขตพื้นที่การศึกษา')}
       ${formInput(INFO, 5, 2, 'ตำบล / แขวง')}${formInput(INFO, 6, 2, 'อำเภอ / เขต')}${formInput(INFO, 7, 2, 'จังหวัด')}
     </div></div>
@@ -509,7 +511,7 @@
   }
   // วันที่ออกเอกสาร ปพ.6 (ใช้คำนวณอายุและวันที่ลงนามในเล่ม ปพ.6 ทั้ง 3 ฉบับ)
   const BOOKS = ['เล่ม ปพ.6 เทอม 1', 'เล่ม ปพ.6 เทอม 2', 'เล่ม ปพ.6 รวม'], BOOK_DATE = { r: 20, c: 'CX' };
-  const bookDate = () => get(BOOKS[0], BOOK_DATE.r, BOOK_DATE.c);
+  const bookDate = (term) => get(BOOKS[term === 1 ? 0 : 1], BOOK_DATE.r, BOOK_DATE.c);
 
   // ---------------------------------------------------------------- ปฏิทินวันเรียน · เวลาเรียน
   // ชีท "ปฏิทิน": แถว 5-10 = พ.ค.-ต.ค. (เทอม 1) · แถว 12-17 = พ.ย.-เม.ย. (เทอม 2) · คอลัมน์ B.. = วันที่ 1..31

@@ -150,10 +150,11 @@
   }
   // วันที่ออกเอกสาร (เลขวันที่แบบ Excel ปี พ.ศ.) → ช่องวันที่ในปก ปพ.5 (วัน/เดือน/ปี) และ ปพ.6 (ข้อความ)
   const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-  function issueTargets(serial) {
+  // term: 1 = เทอม 1 · 2 = เทอม 2 และฉบับรวมทั้งปี (ใช้วันที่ปลายปีการศึกษา)
+  function issueTargets(serial, term) {
     const out = [], dt = typeof serial === 'number' ? new Date(Date.UTC(1899, 11, 30) + serial * 864e5) : null;
     const d = dt ? dt.getUTCDate() : null, m = dt ? TH_MONTHS[dt.getUTCMonth()] : null, y = dt ? dt.getUTCFullYear() : null;
-    for (const s of ['1', '2', 'รวม']) {
+    for (const s of term === 1 ? ['1'] : ['2', 'รวม']) {
       out.push(['ปก ปพ.5 รายชั้น ' + s, 'AE57', d], ['ปก ปพ.5 รายชั้น ' + s, 'AP57', m], ['ปก ปพ.5 รายชั้น ' + s, 'BF57', y]);
       out.push(['ปก ปพ.5 รายวิชา ' + s, 'AE41', d], ['ปก ปพ.5 รายวิชา ' + s, 'AP41', m], ['ปก ปพ.5 รายวิชา ' + s, 'BF41', y]);
       out.push(['ปพ.6 ' + (s === 'รวม' ? 'รวม' : 'เทอม ' + s), 'F34', dt ? d + ' ' + m + ' ' + y : null]);
@@ -171,7 +172,7 @@
     // วันที่ออกเอกสาร ปพ.6: ถ้ายังไม่เคยกรอก ตั้งเป็นวันนี้ (พ.ศ.) ให้คำนวณอายุได้
     const now = new Date(), today = thDate(String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + (now.getFullYear() + 543));
     for (const b of ['เล่ม ปพ.6 เทอม 1', 'เล่ม ปพ.6 เทอม 2', 'เล่ม ปพ.6 รวม']) if (S.wb.sheet(b) && !(S.userEdits[b] && S.userEdits[b].CX20 !== undefined) && today !== null) S.wb.setValue(b, 'CX20', today);
-    if (today !== null) for (const [sh, ref, v] of issueTargets(today)) if (S.wb.sheet(sh) && !(S.userEdits[sh] && S.userEdits[sh][ref] !== undefined)) S.wb.setValue(sh, ref, v);
+    if (today !== null) for (const [sh, ref, v] of [...issueTargets(today, 1), ...issueTargets(today, 2)]) if (S.wb.sheet(sh) && !(S.userEdits[sh] && S.userEdits[sh][ref] !== undefined)) S.wb.setValue(sh, ref, v);
     lockSchoolName(); roomClassLabel();
   }
   // ชื่อโรงเรียนมาจากเซิร์ฟเวอร์ตามรหัสสิทธิ์ แก้ไม่ได้
