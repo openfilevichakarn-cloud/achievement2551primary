@@ -176,9 +176,9 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { if (b.dataset.name === 'บิดามารดา' || b.dataset.name === 'ผู้ปกครอง') { A().showPreview(A().pagesFor(b.dataset.name)); break; } if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (FORM_DOC.test(b.dataset.name)) { A().showPreview(formDocPages(b.dataset.name)); break; } if (b.dataset.name === 'บิดามารดา' || b.dataset.name === 'ผู้ปกครอง') { A().showPreview(A().pagesFor(b.dataset.name)); break; } if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
-      case 'print-doc': if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
+      case 'print-doc': if (FORM_DOC.test(b.dataset.name)) A().showPreview(formDocPages(b.dataset.name)); else if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
       case 'dmc': $('#dmc-file').click(); break;
@@ -225,8 +225,8 @@
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
       case 'p6all': A().printAllStudents(p6Sheet()); break;
-      case 'p6book': { const b = 'เล่ม ' + p6Sheet(); WB().setValue(b, 'CX4', U.p6no); A().printSheets([b]); break; }
-      case 'p6bookall': A().printAllStudents('เล่ม ' + p6Sheet()); break;
+      case 'p6book': { const b = 'เล่ม ปพ.6 รวม'; WB().setValue(b, 'CX4', U.p6no); A().showPreview(formDocPages(b)); break; }
+      case 'p6bookall': A().printAllStudents('เล่ม ปพ.6 รวม'); break;
       case 'backup': A().exportBackup(); break;
       case 'restore': A().pickBackup(); break;
       case 'rooms': A().manageRooms(); break;
@@ -812,11 +812,26 @@
   }
   const subjDocPages = (slot) => [scoreTermPage(slot, 1), scoreTermPage(slot, 2), scoreYearPage(slot)];
 
+  // ปก ปพ.5 รายวิชา: หนึ่งหน้าต่อรายวิชา (หน้าแสดงผลและหน้าพิมพ์ใช้ชุดเดียวกัน)
+  function coverSubjPages(name) {
+    const list = subjects(); if (!list.length) return null;
+    const prev = get(name, 1, C('EM')), out = [];
+    try { for (const s of list) { WB().setValue(name, 'EM1', s.slot); out.push(...A().pagesFor(name)); } } finally { WB().setValue(name, 'EM1', prev); }
+    return out;
+  }
+  // เอกสารฟอร์มต้นฉบับ (ปก ปพ.5 · ปพ.6 · เล่ม ปพ.6 · คำชี้แจง · เอกสารแนบท้าย): ดูตัวอย่างแบบเดียวกับหน้าพิมพ์ (ไม่เปิดเป็นชีท Excel)
+  const FORM_DOC = /^(ปก ปพ\.5 |ปพ\.6 |เล่ม ปพ\.6|คำชี้แจง ปพ\.5|เอกสารแนบท้าย)/;
+  function formDocPages(name) {
+    if (/^ปพ\.6 /.test(name) && nStudents()) WB().setValue(name, 'K8', Math.min(U.p6no, nStudents()));
+    if (/^เล่ม ปพ\.6/.test(name) && nStudents()) WB().setValue(name, 'CX4', Math.min(U.p6no, nStudents()));
+    return customPages(name) || A().pagesFor(name);
+  }
   function customPages(name) {
     const ms = /^วิชาที่ (\d+)$/.exec(name); if (ms) return subjDocPages(+ms[1]);
     if (ASSESS_DOCS[name]) return assessDocPages(name);
     if (name === 'ชื่อนักเรียน') return [rosterPage()];
     if (name === ATT) return attPages('all');
+    if (/^ปก ปพ\.5 รายวิชา/.test(name)) return coverSubjPages(name);
     return null;
   }
 
