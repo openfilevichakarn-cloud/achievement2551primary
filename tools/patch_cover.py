@@ -19,6 +19,12 @@ def patch(sheets):
             nv = dict(v); nv['s'] = c.get(f'AD{r-1}', {}).get('s', v.get('s')); c[f'AD{r}'] = nv   # สไตล์เดียวกับช่องชื่อ (ไม่มีเส้นกรอบ)
             c[k] = {'s': c.get(f'A{r-1}', {}).get('s', v.get('s'))}   # คอลัมน์ A คงเส้นกรอบด้านซ้ายของปก
             moved[(name, f'A{r}')] = f'AD{r}'
+    # ช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ ให้ขนาดเท่ากันทุกปก: กว้าง 5 คอลัมน์เท่ากัน (Y:AC, BF:BJ) สูงเท่ากันเมื่อพิมพ์ (ปกรายชั้น 1149px / รายวิชา 1104px)
+    for name, d in sheets.items():
+        if re.match(r'ปก ปพ\.5 รายชั้น ', name):
+            for c in list(range(25, 30)) + list(range(58, 63)):   # ช่องละ 12/13px รวม 63px ให้สัดส่วนตรงกับปกรายวิชา
+                d['cw'][str(c)] = {**d['cw'].get(str(c), {}), 'w': 1.08 if c in (25, 26, 27, 58, 59, 60) else 1.0}
+            if '52' in d['rh']: d['rh']['52'] = {**d['rh']['52'], 'h': 25.9}
     for name, d in sheets.items():
         for v in d['cells'].values():
             f = v.get('f')
