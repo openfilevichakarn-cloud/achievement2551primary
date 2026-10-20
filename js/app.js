@@ -344,7 +344,7 @@
       if (sh.def.hidden) continue;
       (groups.find(g => g.re.test(sh.name)) || other).items.push(sh.name);
     }
-    return [...groups, other].filter(g => g.items.length);
+    return [...groups, other].filter(g => g.items.length && g.title !== 'เริ่มต้นใช้งาน');   // ชีทกรอกข้อมูลต้นทางมีหน้ากรอกแบบเว็บอยู่แล้ว (ข้อมูล ›) ไม่แสดงในเมนูเอกสาร
   }
 
   // ---------------------------------------------------------------- แสดง / แก้ไขชีท
