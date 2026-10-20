@@ -577,7 +577,7 @@
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียน ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
       <div style="margin:0 0 4px">จำนวนวันเรียนในเดือนนี้ <b>${calCount(m)}</b> วัน &nbsp; เครื่องหมาย: / = มาเรียน · ป = ป่วย · ล = ลา · ข = ขาด · ช่องสีเทา = ไม่ใช่วันเรียน</div>
       <table style="border-collapse:collapse;font-size:14px;width:100%">${h}${rows}</table>
-      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   // หน้าสรุปเวลาเรียนรายห้อง: term = 1 | 2 | 'sum'
@@ -594,7 +594,7 @@
     const planned = ms.reduce((t, m) => t + calCount(m), 0);
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียน ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<div style="margin:0 0 4px">จำนวนวันเรียนตามปฏิทิน <b>${planned}</b> วัน · ร้อยละ = วันที่มา ÷ วันที่เช็คแล้ว · เกณฑ์ไม่น้อยกว่าร้อยละ ${PCT_MIN}</div>
       <table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
-      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   function attPages(months) {
@@ -618,7 +618,7 @@
     return `${attHead(title)}<div style="${PF}display:flex;justify-content:space-between;font-size:15px;margin:0 2px 4px"><span>รายวิชา <b>${esc(subjName(slot))}</b> รหัส ${esc(txt(SUBJ, 5 + slot, 2) || '-')} · ${esc(txt(SUBJ, 5 + slot, 4) ? 'เวลาเรียน ' + txt(SUBJ, 5 + slot, 4) + ' ชั่วโมง' : '')}</span><span>${sub || ''} สัดส่วนระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])}</span></div>`;
   }
   function subjFoot(slot) {
-    return `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('หัวหน้างานวิชาการ', realName(12))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div>`;
+    return `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}</div>`;
   }
   function scoreTermPage(slot, term) {
     const sh = 'วิชาที่ ' + slot, T = SC[term], n = nStudents();
@@ -836,7 +836,7 @@
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกเวลาเรียนรายวิชา ' + subjName(slot) + ' ประจำเดือน' + MONTHS[m] + ' ' + monthBE(m))}
       <div style="margin:0 0 4px">วันที่มีสอนในเดือนนี้ <b>${days.filter(s => !s.off).length}</b> วัน (${planned} คาบ) &nbsp; ครูผู้สอน ${esc(txt(SUBJ, 5 + slot, 6) || '-')} &nbsp; ตัวเลข = จำนวนคาบที่เรียนในวัน · ข ขาด · ป ป่วย · ล ลา (ไม่ได้เรียนเลย) · ช่องสีเทา = ไม่มีสอน</div>
       <table style="border-collapse:collapse;font-size:14px;width:100%">${h}${rows}</table>
-      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   function sYearPage(slot, term) {
@@ -853,7 +853,7 @@
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา ' + subjName(slot) + ' ' + termLabel(term) + ' ปีการศึกษา ' + yearBE())}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
       <div style="margin-top:6px;font-size:14px">เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN} ของเวลาเรียนรายวิชา</div>
-      <div style="display:flex;justify-content:space-around;margin-top:22px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:22px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   function sPages(slot, month) {
@@ -877,7 +877,7 @@
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปเวลาเรียนรายวิชา (ร้อยละ) ' + tl)}<table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:6px">${h}${rows}</table>
       <div style="margin-top:6px;font-size:14px">ตัวเลขคือร้อยละของคาบที่มาเรียนต่อคาบที่เช็คแล้ว · ตัวหนาขีดเส้นใต้ = ต่ำกว่าเกณฑ์ร้อยละ ${PCT_MIN}</div>
-      <div style="display:flex;justify-content:space-around;margin-top:22px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:22px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   // ปพ.6 รายบุคคล: เวลาเรียนแยกรายวิชา
@@ -891,7 +891,7 @@
     const html = `<div style="${PF}font-size:16px">${attHead('เวลาเรียนรายวิชา ' + tl)}<div style="margin:6px 0">ชื่อ-สกุล <b>${esc(stuName(i))}</b> &nbsp; เลขที่ ${i + 1}</div>
       <table style="border-collapse:collapse;font-size:15px;width:100%"><tr>${['รหัสวิชา', 'รายวิชา', 'คาบทั้งหมดตามตาราง', 'คาบที่เช็คแล้ว', 'มา', 'ป่วย', 'ลา', 'ขาด', 'ร้อยละ', 'ผล'].map(x => `<th style="border:1px solid #000;font-weight:700">${x}</th>`).join('')}</tr>${rows || '<tr><td colspan="10" style="border:1px solid #000">ยังไม่มีตารางสอน</td></tr>'}</table>
       <div style="margin-top:6px;font-size:14px">หน่วยเป็นคาบเรียน · เกณฑ์เวลาเรียนไม่น้อยกว่าร้อยละ ${PCT_MIN} ของเวลาเรียนรายวิชา</div>
-      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div></div>`;
+      <div style="display:flex;justify-content:space-around;margin-top:26px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div></div>`;
     return { html, zoom: 1, land: false, m: [0.6, 0.6, 0.6, 0.6], fit: true, fitW: true };
   }
   // ---- ตารางสรุปบนหน้าเว็บ (ปพ.5 / ปพ.6)
