@@ -174,7 +174,7 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
       case 'print-doc': if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
