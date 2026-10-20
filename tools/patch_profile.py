@@ -6,7 +6,8 @@
 ใช้: python3 tools/patch_profile.py data/template.json  (และถูกเรียกจาก build_template.py)"""
 import json, re, sys
 
-def patch(sheets):
+def patch(sheets, styles=None):
+    if styles is not None and 622 < len(styles): styles[622]['n'] = 'd\\ mmm\\ yyyy'   # วันที่ชั่งน้ำหนัก/วัดส่วนสูงในเล่ม ปพ.6 แบบย่อให้พอดีช่อง
     c = sheets['ข้อมูลเพิ่มเติม']['cells']
     for k, v in c.items():
         if isinstance(v.get('v'), str) and v['v'].startswith('กรอกที่แผ่นงานข้อมูลเพิ่มเติม'): v.pop('v')
@@ -20,5 +21,5 @@ def patch(sheets):
 
 if __name__ == '__main__':
     d = json.load(open(sys.argv[1], encoding='utf-8'))
-    patch({s['name']: s for s in d['sheets']})
+    patch({s['name']: s for s in d['sheets']}, d['styles'])
     json.dump(d, open(sys.argv[1], 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))

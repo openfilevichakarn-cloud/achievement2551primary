@@ -17,7 +17,7 @@
     const out = [];
     styles.forEach((s, i) => {
       const f = s.f, a = s.a; let css = '';
-      css += `font-family:${FONT_STACK};font-size:calc(${(f[1] || 11) * 4 / 3}px * var(--fs,1));color:${f[5]};`;
+      css += `font-family:${FONT_STACK};font-size:calc(${(f[1] || 11) * 4 / 3 * 1}px * var(--fs,1));color:${f[5]};`;
       if (f[2]) css += 'font-weight:700;'; if (f[3]) css += 'font-style:italic;';
       if (f[4] && f[4] !== 'none') css += 'text-decoration:underline;';
       if (s.bg) css += `background:${s.bg};`;
@@ -28,7 +28,7 @@
       if (h === 'center' || h === 'centerContinuous') css += 'text-align:center;'; else if (h === 'right') css += 'text-align:right;'; else if (h === 'left') css += 'text-align:left;'; else if (h === 'justify') css += 'text-align:justify;';
       css += 'vertical-align:' + (v === 'center' ? 'middle' : v === 'top' ? 'top' : 'bottom') + ';';
       css += a[2] ? 'white-space:pre-wrap;word-break:break-word;' : 'white-space:pre;';
-      out.push(`.s${i}{${css}}`);
+      out.push(`.s${i},table.xl td.s${i}{${css}}`);   // ต้องชนะ table.xl td{font-size} ของหน้าเว็บ ไม่เช่นนั้นทุกเซลล์จะเป็นขนาดเดียวกัน
       if (a[3]) out.push(`table.xl td.s${i}{padding-left:${a[3] * 9 + 2}px}`);   // เยื้อง (ต้องชนะ table.xl td{padding})
       if (a[2]) out.push(`table.xl td.s${i}{line-height:1.2}table.xl.cmp td.s${i}{line-height:1.25;padding-top:.15em;padding-bottom:.08em}`);   // ข้อความหลายบรรทัด: ระยะบรรทัดชิดที่สุดที่สระบน/ล่างไม่ทับกัน (TH Sarabun New)
       if (a[4] === 90 || a[4] === 180) out.push(`.s${i} .rot{writing-mode:vertical-rl;transform:rotate(180deg);display:inline-block;}`);
@@ -50,6 +50,7 @@
     if (/dddd/.test(nf)) return 'วัน' + TH_DAYS[wd] + 'ที่ ' + dd + ' ' + TH_MONTHS[mo] + ' ' + y;
     if (/m\/d\/yyyy/.test(nf)) return String(dd).padStart(2, '0') + '/' + String(mo + 1).padStart(2, '0') + '/' + y;
     if (/mmmm/.test(nf)) return dd + ' ' + TH_MONTHS[mo] + ' ' + y;
+    if (/d\\ ?mmm\\ ?yyyy/.test(nf)) return dd + ' ' + TH_MON_S[mo] + ' ' + y;   // วันที่แบบย่อ เช่น 16 พ.ค. 2566
     if (/d\\-mmm/.test(nf)) return dd + '-' + TH_MON_S[mo];
     if (/mmm\\-yy/.test(nf)) return TH_MON_S[mo] + '-' + String(y).slice(-2);
     return null;

@@ -125,7 +125,7 @@ def main():
             for c in s['cells'].values():
                 if c.get('u') and c.get('v') == '/': c.pop('v')
     patch_assess.patch({s['name']: s for s in d['sheets']})
-    patch_profile.patch({s['name']: s for s in d['sheets']})
+    patch_profile.patch({s['name']: s for s in d['sheets']}, d['styles'])
     patch_cover.patch({s['name']: s for s in d['sheets']})
     d['source'] = os.path.basename(src)
     json.dump(d, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))

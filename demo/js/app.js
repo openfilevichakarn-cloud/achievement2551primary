@@ -600,7 +600,7 @@
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
       if (k > 1.02) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
-      return { html: out.html, zoom, land, m, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
+      return { html: out.html, zoom, land, m, fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
   function printAllStudents(name) {
@@ -618,7 +618,7 @@
   function showPreview(blocks) {
     if (!blocks.length) return;
     const root = $('#print-root');
-    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
+    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
     if (!bar) {
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);
