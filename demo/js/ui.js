@@ -1330,15 +1330,18 @@
     return { ...PG, html };
   }
   // รายชื่อนักเรียน (เอกสาร › สรุปผลรายชั้น › ชื่อนักเรียน): ดึงจาก ข้อมูล › นักเรียน
+  const TH_MON = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  // เลขวันที่ Excel (ปี พ.ศ. อยู่ในช่องปี) → '10 มีนาคม 2569'
+  const thLong = (v) => { if (typeof v !== 'number') return v ? String(v) : ''; const d = new Date(Date.UTC(1899, 11, 30) + v * 864e5); return d.getUTCDate() + ' ' + TH_MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
   function rosterPage() {
     const n = nStudents(); let m = 0, f = 0, rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const sex = txt(ST, 3 + i, 7).trim(); if (n) { if (sex === 'ช') m++; else if (sex === 'ญ') f++; }
-      rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell(esc(rawOf(get(ST, 3 + i, 13), 'date')))}${pcell('')}</tr>`;
+      rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell(esc(thLong(get(ST, 3 + i, 13))), 'white-space:nowrap')}${pcell('')}</tr>`;
     }
     const html = `<div style="${PF}font-size:16px">${attHead('รายชื่อนักเรียน')}
       <div style="display:flex;justify-content:space-between;margin:0 2px 4px;font-size:15px"><span>ครูประจำชั้น ${esc(realName(13) || '-')}</span><span>จำนวนนักเรียน <b>${n}</b> คน${m + f ? ` (ชาย ${m} · หญิง ${f})` : ''}</span></div>
-      <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('วัน/เดือน/ปีเกิด', 'width:120px')}${thS('หมายเหตุ', 'width:110px')}</tr>${rows}</table>${homeSign()}</div>`;
+      <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('วัน/เดือน/ปีเกิด', 'width:150px')}${thS('หมายเหตุ', 'width:110px')}</tr>${rows}</table>${homeSign()}</div>`;
     return { ...PG, html };
   }
   // ---- สรุปผลรายชั้น (ไม่ใช้สี) อ่านค่าจากชีท คะแนนรายชั้น / คะแนนร้อยละ / เกรดรายชั้น / เกรดร้อยละ ซึ่งคำนวณไว้แล้ว
