@@ -55,6 +55,12 @@ function build(g) {
     set(S, 'D' + row, 'ประถมศึกษาปีที่ ' + g); set(S, 'E' + row, 1); set(S, 'F' + row, String(g) + String(i + 1).padStart(3, '0'));
     set(S, 'G' + row, k.sex); set(S, 'H' + row, k.pre); set(S, 'I' + row, k.first); set(S, 'J' + row, k.last);
     set(S, 'M' + row, serial(2566 - 5 - g, 1 + Math.floor(r() * 12), 1 + Math.floor(r() * 28)));
+    set(S, 'Q' + row, 'ไทย'); set(S, 'R' + row, 'ไทย'); set(S, 'S' + row, 'พุทธ'); set(S, 'Y' + row, 'อยู่ร่วมกัน');
+    set(S, 'AA' + row, 'นาย'); set(S, 'AB' + row, 'สมชาย'); set(S, 'AC' + row, k.last); set(S, 'CC' + row, 'รับจ้าง');
+    set(S, 'AG' + row, 'นาง'); set(S, 'AH' + row, 'สมหญิง'); set(S, 'AI' + row, k.last); set(S, 'CD' + row, 'ค้าขาย');
+    set(S, 'AL' + row, 'บิดา'); set(S, 'AN' + row, 'นาย'); set(S, 'AO' + row, 'สมชาย'); set(S, 'AP' + row, k.last); set(S, 'CE' + row, 'รับจ้าง');
+    set(S, 'AT' + row, String(10 + i)); set(S, 'AU' + row, '3'); set(S, 'AW' + row, 'ตำบลตัวอย่าง'); set(S, 'AX' + row, 'อำเภอตัวอย่าง'); set(S, 'AY' + row, 'จังหวัดตัวอย่าง'); set(S, 'AZ' + row, '10000');
+    set('ข้อมูลเพิ่มเติม', 'AA' + (2 + i), 'รับผิดชอบงานที่ได้รับมอบหมายดี'); set('ข้อมูลเพิ่มเติม', 'AB' + (2 + i), 'ใช้เวลาว่างอ่านหนังสือ'); set('ข้อมูลเพิ่มเติม', 'AC' + (2 + i), 'เข้ากับเพื่อนได้ดี'); set('ข้อมูลเพิ่มเติม', 'AD' + (2 + i), 'ร่าเริง สุภาพ'); set('ข้อมูลเพิ่มเติม', 'AE' + (2 + i), 'สุขภาพแข็งแรง');
     set(S, 'BK' + row, Math.round(14 + g * 2.6 + r() * 5)); set(S, 'BL' + row, Math.round(100 + g * 6 + r() * 8));
   });
 

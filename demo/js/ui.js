@@ -25,7 +25,7 @@
   const fmt2 = (v) => typeof v === 'number' ? (Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100)) : (v === null ? '' : String(v));
 
   // นักเรียน: แถวของชีทข้อมูลนักเรียนที่มีชื่อ (แถว 3..)
-  const ST = 'ข้อมูลนักเรียน', SUBJ = 'รายวิชา', INFO = 'ข้อมูลพื้นฐาน';
+  const ST = 'ข้อมูลนักเรียน', SUBJ = 'รายวิชา', INFO = 'ข้อมูลพื้นฐาน', ROSTER = 'ข้อมูลเพิ่มเติม';
   function nStudents() { let n = 0; for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 9).trim() || txt(ST, 3 + i, 10).trim()) n = i + 1; return n; }
   const stuName = (i) => { const p = (c) => txt(ST, 3 + i, c); return (p(8) + p(9) + ' ' + p(10)).trim(); };
   const subjCount = () => { let n = 0; for (let i = 0; i < MAX_SUBJ; i++) if (txt(SUBJ, 6 + i, 3).trim()) n = i + 1; return n; };
@@ -179,6 +179,8 @@
       case 'print-doc': if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
+      case 'psub': set({ psub: k }); break;
+      case 'proffill': profFill(); break;
       case 'cyc': cycle(b); break;
       case 'aedit': set({ aedit: !U.aedit }); break;
       case 'aadd': itemAdd(+b.dataset.g); break;
@@ -219,6 +221,8 @@
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
       case 'p6all': A().printAllStudents(p6Sheet()); break;
+      case 'p6book': { const b = 'เล่ม ' + p6Sheet(); WB().setValue(b, 'CX4', U.p6no); A().printSheets([b]); break; }
+      case 'p6bookall': A().printAllStudents('เล่ม ' + p6Sheet()); break;
       case 'backup': A().exportBackup(); break;
       case 'restore': A().pickBackup(); break;
       case 'rooms': A().manageRooms(); break;
@@ -239,6 +243,12 @@
       setv(CAL, TERM_CELLS[i][1], TERM_CELLS[i][0], v); x.value = v || ''; return;
     }
     if (x.dataset.f === 'p6no') { U.p6no = +x.value; refresh(); return; }
+    if (x.dataset.f === 'bookdate') {
+      const v = parseCell('date', x.value);
+      if (x.value.trim() && typeof v !== 'number') { A().toast('กรอกวันที่เป็น วว/ดด/ปปปป (พ.ศ.)', 'warn'); return; }
+      for (const b of BOOKS) setv(b, BOOK_DATE.r, BOOK_DATE.c, v);
+      x.value = rawOf(v, 'date'); return;
+    }
     let val = t === 'num' ? parseCell('num', x.value) : (String(x.value).trim() === '' ? null : String(x.value).trim());
     if (t === 'date') val = parseCell('date', x.value);
     if (t === 'num' && typeof val === 'string') { A().toast('กรุณากรอกเป็นตัวเลข', 'warn'); return; }
@@ -285,8 +295,8 @@
   // ---------------------------------------------------------------- ข้อมูล
   function vData() {
     const sub = U.dsub;
-    return `<div class="bar">${seg([['school', 'โรงเรียน'], ['students', 'นักเรียน'], ['subjects', 'รายวิชา'], ['body', 'น้ำหนัก-ส่วนสูง'], ['time', 'เวลาเรียน'], ['backup', 'สำรองข้อมูล']], sub, 'dsub')}</div>` +
-      ({ school: vSchool, students: vStudents, subjects: vSubjects, body: vBody, time: vTime, backup: vBackup }[sub] || vSchool)();
+    return `<div class="bar">${seg([['school', 'โรงเรียน'], ['students', 'นักเรียน'], ['profile', 'ข้อมูลส่วนตัว'], ['subjects', 'รายวิชา'], ['body', 'น้ำหนัก-ส่วนสูง'], ['time', 'เวลาเรียน'], ['backup', 'สำรองข้อมูล']], sub, 'dsub')}</div>` +
+      ({ school: vSchool, students: vStudents, profile: vProfile, subjects: vSubjects, body: vBody, time: vTime, backup: vBackup }[sub] || vSchool)();
   }
   function vSchool() {
     const S = A().S;
@@ -295,6 +305,7 @@
       ${field('ชั้น (ตามห้องที่เปิดอยู่)', `<input value="${esc(txt(SUBJ, 2, 2))}" disabled>`)}
       ${formInput(SUBJ, 4, 2, 'ปีการศึกษา', { t: 'num', ph: 'เช่น 2566' })}
       ${formInput(SUBJ, 3, 2, 'ภาคเรียนที่ (ใช้ในส่วนหัวเอกสาร)', { t: 'num', ph: '1 หรือ 2' })}
+      ${field('วันที่ออกเอกสาร ปพ.6 (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate" value="${esc(rawOf(bookDate(), 'date'))}" placeholder="เช่น 31/03/2567">`)}
       ${formInput(INFO, 4, 2, 'สังกัดระดับกรม')}${formInput(INFO, 8, 2, 'สังกัดระดับจังหวัด / เขตพื้นที่การศึกษา')}
       ${formInput(INFO, 5, 2, 'ตำบล / แขวง')}${formInput(INFO, 6, 2, 'อำเภอ / เขต')}${formInput(INFO, 7, 2, 'จังหวัด')}
     </div></div>
@@ -353,6 +364,43 @@
     return `<div class="card soft"><b>น้ำหนัก (กก.) · ส่วนสูง (ซม.) 4 ครั้งต่อปี</b><p class="hint" style="margin:.3rem 0 0">กรอกวันที่ชั่งวัดไว้ที่หัวตาราง แล้วกรอกค่าของนักเรียนแต่ละคน</p></div>
       <div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>${dts}</tr><tr><th class="no"></th><th class="stk"></th>${'<th>น้ำหนัก</th><th>ส่วนสูง</th>'.repeat(4)}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
+  // ---------------------------------------------------------------- ข้อมูลส่วนตัวนักเรียน (ใช้ในเล่ม ปพ.6)
+  // เก็บในชีท ข้อมูลนักเรียน (แถว 3+) และ ข้อมูลเพิ่มเติม (ความเห็นครู แถว 2+) — เล่ม ปพ.6 ดึงไปแสดงเอง
+  // หมายเหตุ: ป้าย เชื้อชาติ/สัญชาติ ตรงกับที่เล่ม ปพ.6 พิมพ์ (ในไฟล์ต้นฉบับคอลัมน์ Q/R ป้ายสลับกัน)
+  const PROF = {
+    id: { title: 'ข้อมูลนักเรียน', cols: [['รหัสนักเรียน', ST, 6, 'text', 3], ['เลขประจำตัวประชาชน', ST, 3, 'text', 3, 'wide'], ['วันเกิด (วว/ดด/ปปปป)', ST, 13, 'date', 3], ['เพศ (ช/ญ)', ST, 7, 'sex', 3], ['เชื้อชาติ', ST, 17, 'text', 3], ['สัญชาติ', ST, 18, 'text', 3], ['ศาสนา', ST, 19, 'text', 3]], fill: [[17, 'ไทย'], [18, 'ไทย'], [19, 'พุทธ']], fillLabel: 'ตั้ง เชื้อชาติ/สัญชาติ = ไทย ศาสนา = พุทธ ให้ทุกคนที่ว่าง' },
+    family: { title: 'บิดา · มารดา', cols: [['สถานภาพสมรสของบิดา-มารดา', ST, 25, 'text', 3, 'wide'], ['คำนำหน้าบิดา', ST, 27, 'text', 3], ['ชื่อบิดา', ST, 28, 'text', 3], ['นามสกุลบิดา', ST, 29, 'text', 3], ['อาชีพบิดา', ST, 81, 'text', 3], ['คำนำหน้ามารดา', ST, 33, 'text', 3], ['ชื่อมารดา', ST, 34, 'text', 3], ['นามสกุลมารดา', ST, 35, 'text', 3], ['อาชีพมารดา', ST, 82, 'text', 3]] },
+    guard: { title: 'ผู้ปกครอง', cols: [['ความเกี่ยวข้องกับนักเรียน', ST, 38, 'text', 3, 'wide'], ['คำนำหน้า', ST, 40, 'text', 3], ['ชื่อผู้ปกครอง', ST, 41, 'text', 3], ['นามสกุล', ST, 42, 'text', 3], ['อาชีพ', ST, 83, 'text', 3]] },
+    addr: { title: 'ที่อยู่ปัจจุบัน', cols: [['บ้านเลขที่', ST, 46, 'text', 3], ['หมู่', ST, 47, 'text', 3], ['ตำบล', ST, 49, 'text', 3], ['อำเภอ', ST, 50, 'text', 3], ['จังหวัด', ST, 51, 'text', 3], ['รหัสไปรษณีย์', ST, 52, 'text', 3]], fill: [[49], [50], [51], [52]], fillLabel: 'เติม ตำบล อำเภอ จังหวัด รหัสไปรษณีย์ ของคนที่ 1 ให้คนที่ว่าง' },
+    note: { title: 'ความเห็นครูประจำชั้น', cols: [['ด้านหน้าที่รับผิดชอบ ความเอาใจใส่การเรียน', ROSTER, 27, 'text', 2, 'note'], ['ด้านการใช้เวลาว่าง', ROSTER, 28, 'text', 2, 'note'], ['ด้านความสัมพันธ์กับบุคคลรอบข้าง', ROSTER, 29, 'text', 2, 'note'], ['ด้านอุปนิสัย บุคลิกภาพ', ROSTER, 30, 'text', 2, 'note'], ['ด้านสุขภาพ', ROSTER, 31, 'text', 2, 'note']] },
+  };
+  function vProfile() {
+    const n = nStudents(); U.psub = PROF[U.psub] ? U.psub : 'id';
+    const head = `<div class="bar">${seg(Object.entries(PROF).map(([k, v]) => [k, v.title]), U.psub, 'psub')}</div>`;
+    if (!n) return head + '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่แท็บ “นักเรียน” ก่อน</div>';
+    const P_ = PROF[U.psub];
+    let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>' + P_.cols.map(c => `<th>${esc(c[0])}</th>`).join(''), body = '';
+    for (let i = 0; i < n; i++) {
+      body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>${P_.cols.map((c, j) => gcell(c[1], c[4] + i, c[2], c[3], i, j, { cls: c[5] || '' })).join('')}</tr>`;
+    }
+    const tools = P_.fill ? `<div class="bar"><button class="btn sm" data-act="proffill">${esc(P_.fillLabel)}</button></div>` : '';
+    const hint = U.psub === 'note' ? 'ข้อความสั้น ๆ ต่อด้าน จะพิมพ์ในหน้าความคิดเห็นของเล่ม ปพ.6' : 'คลิกช่องแล้วพิมพ์ · วางข้อมูลหลายช่องจาก Excel ได้ (Ctrl+V) · ข้อมูลนี้แสดงในเล่ม ปพ.6 (รายงานประจำตัวนักเรียน)';
+    return head + `<p class="hint">${hint}</p>${tools}<div class="tw"><table class="t sheet prof ${U.psub}"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  function profFill() {
+    const P_ = PROF[U.psub], n = nStudents(); if (!P_.fill || !n) return;
+    for (const [col, dflt] of P_.fill) {
+      const spec = P_.cols.find(c => c[2] === col), r0 = spec[4];
+      const base = dflt !== undefined ? dflt : get(spec[1], r0, col);
+      if (base === null || base === '') continue;
+      for (let i = 0; i < n; i++) { const v = get(spec[1], r0 + i, col); if (v === null || v === '') setv(spec[1], r0 + i, col, base); }
+    }
+    refresh();
+  }
+  // วันที่ออกเอกสาร ปพ.6 (ใช้คำนวณอายุและวันที่ลงนามในเล่ม ปพ.6 ทั้ง 3 ฉบับ)
+  const BOOKS = ['เล่ม ปพ.6 เทอม 1', 'เล่ม ปพ.6 เทอม 2', 'เล่ม ปพ.6 รวม'], BOOK_DATE = { r: 20, c: 'CX' };
+  const bookDate = () => get(BOOKS[0], BOOK_DATE.r, BOOK_DATE.c);
+
   // ---------------------------------------------------------------- ปฏิทินวันเรียน · เวลาเรียน
   // ชีท "ปฏิทิน": แถว 5-10 = พ.ค.-ต.ค. (เทอม 1) · แถว 12-17 = พ.ย.-เม.ย. (เทอม 2) · คอลัมน์ B.. = วันที่ 1..31
   // ใส่อักษรย่อวันในสัปดาห์ในวันที่เรียน (จ อ พ พฤ ศ) หรือ ส / อา สำหรับเรียนชดเชย — ชีท "เวลาเรียน" ดึงวันเรียนไปเองอัตโนมัติ
@@ -1240,7 +1288,8 @@
     const act = [35, 36, 37, 38].map(r => `<div class="row sp"><span>${esc(txt(sh, r, 2))}${r === 37 && txt(sh, r, 3) ? ' (' + esc(txt(sh, r, 3)) + ')' : ''}</span>${chip(get(sh, r, 4))}</div>`).join('');
     const ass = [[39, groupName('trait', 0)], [40, groupName('trait', 1)], [41, groupName('value', 0)], [42, groupName('value', 1)]].map(([r, t]) => `<div class="row sp"><span>${t}</span>${chip(get(sh, r, 4))}</div>`).join('');
     return head + pick + `<div class="card" style="margin-top:12px"><div class="rhead"><div><h3>${esc(stuName(U.p6no - 1))}</h3><span class="hint">เลขที่ ${U.p6no} · รหัส ${esc(txt(ST, 3 + U.p6no - 1, 6))} · ${esc(txt(SUBJ, 2, 2))}</span></div>
-        <div class="row"><button class="btn" data-act="doc" data-name="${esc(sh)}">ดูเอกสาร</button><button class="btn primary" data-act="p6print">พิมพ์คนนี้</button><button class="btn" data-act="p6all">พิมพ์ทั้งห้อง</button></div></div></div>
+        <div class="row"><button class="btn" data-act="doc" data-name="${esc(sh)}">ดูเอกสาร</button><button class="btn primary" data-act="p6print">พิมพ์คนนี้</button><button class="btn" data-act="p6all">พิมพ์ทั้งห้อง</button></div></div>
+        <div class="row" style="margin-top:8px"><span class="hint">เล่ม ปพ.6 (รายงานประจำตัวนักเรียน ฉบับเต็ม):</span><button class="btn" data-act="p6book">พิมพ์เล่มคนนี้</button><button class="btn" data-act="p6bookall">พิมพ์เล่มทั้งห้อง</button></div></div>
       <div class="tw p5tw"><table class="t p5t"><thead><tr><th>รหัส</th><th class="stk">รายวิชา</th><th>เวลาเรียน</th><th>คะแนนเต็ม</th><th>เฉลี่ยชั้น</th><th>คะแนนที่ได้</th><th>ร้อยละ</th><th>ระดับ</th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="hint">ยังไม่มีรายวิชา</td></tr>'}</tbody>
         <tfoot><tr><td colspan="3" class="stk">รวม · ร้อยละ ${esc(fmt2(get(sh, 30, 4)))}</td><td class="num">${esc(fmt2(get(sh, 29, 5)))}</td><td class="num">${esc(fmt2(get(sh, 29, 6)))}</td><td class="num">${esc(fmt2(get(sh, 29, 7)))}</td><td class="num">${esc(fmt2(get(sh, 29, 8)))}</td><td></td></tr></tfoot></table></div>
       <div class="grid2" style="margin-top:12px"><div class="card"><h3>ผลการเรียนเฉลี่ย</h3><div class="row sp"><span>ผลการเรียนเฉลี่ย</span><b>${esc(fmt2(get(sh, 32, 4)))}</b></div><div class="row sp"><span>คะแนนรวมได้ลำดับที่</span><b>${esc(fmt2(get(sh, 31, 4)))}</b></div><div class="row sp"><span>ผลการเรียนเฉลี่ยได้ลำดับที่</span><b>${esc(fmt2(get(sh, 33, 4)))}</b></div></div>
@@ -1266,7 +1315,7 @@
   // ---------------------------------------------------------------- คู่มือ
   function vManual() {
     const S = [
-      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม · ปุ่ม <b>ปรับหัวข้อ</b> ใช้ตั้งชื่อกลุ่ม/หัวข้อ เพิ่มหรือลบหัวข้อของคุณลักษณะ ค่านิยม และสมรรถนะ</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
+      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › ข้อมูลส่วนตัว</b> กรอกข้อมูลที่เล่ม ปพ.6 ใช้ (เลขประจำตัว วันเกิด บิดา-มารดา-ผู้ปกครอง ที่อยู่ ความเห็นครู) และตั้งวันที่ออกเอกสารที่ ข้อมูล › โรงเรียน</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม · ปุ่ม <b>ปรับหัวข้อ</b> ใช้ตั้งชื่อกลุ่ม/หัวข้อ เพิ่มหรือลบหัวข้อของคุณลักษณะ ค่านิยม และสมรรถนะ</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
       ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
       ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ แต่แก้เฉพาะวิชาของตนได้เมื่อนักเรียนเรียนไม่เต็มวัน (แตะช่อง) วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],

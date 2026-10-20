@@ -156,6 +156,9 @@
         for (const [ref, val] of Object.entries(m)) { S.wb.setValue(sheet, ref, val); (S.userEdits[sheet] = S.userEdits[sheet] || {})[ref] = val; }
       }
     }
+    // วันที่ออกเอกสาร ปพ.6: ถ้ายังไม่เคยกรอก ตั้งเป็นวันนี้ (พ.ศ.) ให้คำนวณอายุได้
+    const now = new Date(), today = thDate(String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + (now.getFullYear() + 543));
+    for (const b of ['เล่ม ปพ.6 เทอม 1', 'เล่ม ปพ.6 เทอม 2', 'เล่ม ปพ.6 รวม']) if (S.wb.sheet(b) && !(S.userEdits[b] && S.userEdits[b].CX20 !== undefined) && today !== null) S.wb.setValue(b, 'CX20', today);
     lockSchoolName(); roomClassLabel();
   }
   // ชื่อโรงเรียนมาจากเซิร์ฟเวอร์ตามรหัสสิทธิ์ แก้ไม่ได้

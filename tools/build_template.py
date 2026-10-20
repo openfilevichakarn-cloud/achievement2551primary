@@ -19,7 +19,7 @@ CLEAR = {'รายวิชา': ['B6', 'C6', 'D6', 'E6', 'F6']}
 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import patch_activity, patch_assess
+import patch_activity, patch_assess, patch_profile
 
 def colnum(c):
     n = 0
@@ -125,6 +125,7 @@ def main():
             for c in s['cells'].values():
                 if c.get('u') and c.get('v') == '/': c.pop('v')
     patch_assess.patch({s['name']: s for s in d['sheets']})
+    patch_profile.patch({s['name']: s for s in d['sheets']})
     d['source'] = os.path.basename(src)
     json.dump(d, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     print('พื้นที่พิมพ์', n, 'ชีท ->', dst, round(os.path.getsize(dst) / 1e6, 1), 'MB')

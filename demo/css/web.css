@@ -75,3 +75,8 @@ table.sheet.subj td input{min-width:0}
 .aedit .aitem .x:hover:not(:disabled){background:#fee2e2;color:#b91c1c}
 .aedit .aitem .x:disabled{opacity:.3;cursor:default}
 .btn.on{border-color:var(--primary,#2563eb);color:var(--primary,#2563eb)}
+
+/* ข้อมูลส่วนตัวนักเรียน (ใช้ในเล่ม ปพ.6) */
+table.prof input.gc{min-width:7.5rem}
+table.prof td.wide input.gc{min-width:11rem}
+table.prof td.note input.gc{min-width:16rem}
