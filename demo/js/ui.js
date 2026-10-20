@@ -47,6 +47,8 @@
     $('#tabbar').innerHTML = TABS.map(t => `<button data-tab="${t[0]}" class="${t[3]}">${svg(t[2])}<span>${t[1]}</span></button>`).join('');
     $('#tabbar').onclick = (e) => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); };
     const v = $('#view');
+    $('#modal').addEventListener('change', (e) => { if (e.target.id === 'dmc-class') window.__dmcPick = e.target.value; });
+    $('#dmc-file').onchange = (e) => { importDmc(e.target.files[0]); e.target.value = ''; };
     v.oninput = onInput; v.onchange = onChange; v.onclick = onClick; v.onkeydown = onKey; v.onpaste = onPaste;
     go('home');
   }
@@ -179,8 +181,8 @@
       case 'print-doc': if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
-      case 'psub': set({ psub: k }); break;
-      case 'proffill': profFill(); break;
+      case 'dmc': $('#dmc-file').click(); break;
+      case 'stdfill': stdFill(k); break;
       case 'cyc': cycle(b); break;
       case 'aedit': set({ aedit: !U.aedit }); break;
       case 'aadd': itemAdd(+b.dataset.g); break;
@@ -295,8 +297,8 @@
   // ---------------------------------------------------------------- ข้อมูล
   function vData() {
     const sub = U.dsub;
-    return `<div class="bar">${seg([['school', 'โรงเรียน'], ['students', 'นักเรียน'], ['profile', 'ข้อมูลส่วนตัว'], ['subjects', 'รายวิชา'], ['body', 'น้ำหนัก-ส่วนสูง'], ['time', 'เวลาเรียน'], ['backup', 'สำรองข้อมูล']], sub, 'dsub')}</div>` +
-      ({ school: vSchool, students: vStudents, profile: vProfile, subjects: vSubjects, body: vBody, time: vTime, backup: vBackup }[sub] || vSchool)();
+    return `<div class="bar">${seg([['school', 'โรงเรียน'], ['students', 'นักเรียน'], ['note', 'ความเห็นครู'], ['subjects', 'รายวิชา'], ['body', 'น้ำหนัก-ส่วนสูง'], ['time', 'เวลาเรียน'], ['backup', 'สำรองข้อมูล']], sub, 'dsub')}</div>` +
+      ({ school: vSchool, students: vStudents, note: vNote, subjects: vSubjects, body: vBody, time: vTime, backup: vBackup }[sub] || vSchool)();
   }
   function vSchool() {
     const S = A().S;
@@ -327,21 +329,85 @@
     const sex = /^(เด็กชาย|ด\.?ช\.?|นาย|master)/i.test(t) ? 'ช' : /^(เด็กหญิง|ด\.?ญ\.?|นางสาว|นาง|น\.ส\.|miss)/i.test(t) ? 'ญ' : null;
     if (sex) setv(ST, r, 7, sex);
   }
+  // รายชื่อ + ข้อมูลส่วนตัวนักเรียน เรียงหัวข้อตามไฟล์ DMC (กรอกเองหรือนำเข้าไฟล์ DMC .xlsx)
+  // [ป้าย, คอลัมน์ในชีท ข้อมูลนักเรียน, ชนิด, class]
+  const STU_GROUPS = [
+    ['ข้อมูลนักเรียน', [['เลขประจำตัวประชาชน', 3, 'text', 'wide'], ['เลขประจำตัวนักเรียน', 6, 'text'], ['เพศ (ช/ญ)', 7, 'sex'], ['คำนำหน้า', 8, 'text', 'pre'], ['ชื่อ', 9, 'text', 'wide'], ['นามสกุล', 10, 'text', 'wide'], ['วันเกิด (วว/ดด/ปปปป)', 13, 'date'], ['กลุ่มเลือด', 16, 'text'], ['ศาสนา', 19, 'text'], ['เชื้อชาติ', 17, 'text'], ['สัญชาติ', 18, 'text']]],
+    ['ที่อยู่', [['บ้านเลขที่', 46, 'text'], ['หมู่', 47, 'text'], ['ถนน/ซอย', 48, 'text'], ['ตำบล', 49, 'text'], ['อำเภอ', 50, 'text'], ['จังหวัด', 51, 'text'], ['รหัสไปรษณีย์', 52, 'text']]],
+    ['ผู้ปกครอง', [['คำนำหน้า', 40, 'text'], ['ชื่อ', 41, 'text', 'wide'], ['นามสกุล', 42, 'text', 'wide'], ['อาชีพ', 83, 'text', 'wide'], ['ความเกี่ยวข้องกับนักเรียน', 38, 'text']]],
+    ['บิดา', [['คำนำหน้า', 27, 'text'], ['ชื่อ', 28, 'text', 'wide'], ['นามสกุล', 29, 'text', 'wide'], ['อาชีพ', 81, 'text', 'wide']]],
+    ['มารดา', [['คำนำหน้า', 33, 'text'], ['ชื่อ', 34, 'text', 'wide'], ['นามสกุล', 35, 'text', 'wide'], ['อาชีพ', 82, 'text', 'wide']]],
+    ['อื่น ๆ', [['สถานภาพสมรสของบิดา-มารดา', 25, 'text', 'wide']]],
+  ];
   function vStudents() {
     const n = nStudents(), rows = Math.min(MAX_STU, Math.max(n + 3, 10, U.stuRows || 0));
     let hasPre = false; for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim()) { hasPre = true; break; }
     const showPre = U.stuPrefix === undefined ? hasPre : U.stuPrefix;
+    const groups = STU_GROUPS.map(([g, cols]) => [g, cols.filter(c => c[3] !== 'pre' || showPre)]);
+    let h1 = '<th class="no" rowspan="2">ที่</th>', h2 = '';
+    for (const [g, cols] of groups) { h1 += `<th colspan="${cols.length}">${esc(g)}</th>`; h2 += cols.map(c => `<th>${esc(c[0] === 'ชื่อ' && g === 'ข้อมูลนักเรียน' && !showPre ? 'ชื่อ (รวมคำนำหน้า)' : c[0])}</th>`).join(''); }
     let body = '';
     for (let i = 0; i < rows; i++) {
-      const r = 3 + i; let g = 0;
-      body += `<tr><td class="no">${i + 1}</td>${showPre ? gcell(ST, r, 8, 'text', i, g++, { ph: 'เด็กชาย' }) : ''}${gcell(ST, r, 9, 'text', i, g++, { cls: 'wide', ph: showPre ? 'ชื่อ' : 'คำนำหน้า + ชื่อ' })}${gcell(ST, r, 10, 'text', i, g++, { cls: 'wide', ph: 'นามสกุล' })}</tr>`;
+      const r = 3 + i; let gc = 0; body += `<tr><td class="no">${i + 1}</td>`;
+      for (const [, cols] of groups) for (const c of cols) body += gcell(ST, r, c[1], c[2], i, gc++, { cls: c[3] === 'pre' ? '' : c[3] || '', ph: c[3] === 'pre' ? 'เด็กชาย' : '' });
+      body += '</tr>';
     }
     return `<datalist id="prefixes">${PREFIX.map(p => `<option value="${p}">`).join('')}</datalist>
       <div class="card soft"><b>รายชื่อนักเรียน ${n} คน</b> (สูงสุด ${MAX_STU} คน)
-        <p class="hint" style="margin:.3rem 0 0">${showPre ? 'กรอกคำนำหน้า ชื่อ และนามสกุลแยกช่อง' : 'กรอกชื่อพร้อมคำนำหน้าในช่องชื่อ เช่น เด็กชายสมชาย — ถ้าโรงเรียนแยกคำนำหน้าไว้ต่างหาก กดปุ่ม “เพิ่มคำนำหน้า”'} · คลิกช่องแล้วพิมพ์ · ลูกศร/Enter เลื่อนช่อง · คัดลอกตารางจาก Excel มาวาง (Ctrl+V) ที่ช่องแรกได้ทั้งตาราง</p>
-        <div class="row" style="margin-top:8px"><button class="btn sm" data-act="stupre">${showPre ? '－ ซ่อนคำนำหน้า' : '＋ เพิ่มคำนำหน้า'}</button></div></div>
-      <div class="tw fit"><table class="t sheet fit"><thead><tr><th class="no">ที่</th>${showPre ? '<th>คำนำหน้า</th>' : ''}<th>${showPre ? 'ชื่อ' : 'ชื่อ (รวมคำนำหน้า)'}</th><th>นามสกุล</th></tr></thead><tbody>${body}</tbody></table></div>
-      ${rows < MAX_STU ? '<p><button class="btn" data-act="addrows" data-key="stuRows">＋ เพิ่ม 5 แถว</button></p>' : ''}`.replace(/(<input class="gc"[^>]*data-gc="0")/g, showPre ? '$1 list="prefixes"' : '$1');
+        <p class="hint" style="margin:.3rem 0 0">หัวข้อเรียงตามไฟล์ DMC · กรอกเอง หรือกด “นำเข้าไฟล์ DMC” · วางข้อมูลหลายช่องจาก Excel ได้ (Ctrl+V) · ข้อมูลทั้งหมดนี้ใช้ในเล่ม ปพ.6</p>
+        <div class="row" style="margin-top:8px"><button class="btn primary" data-act="dmc">นำเข้าไฟล์ DMC (.xlsx)</button><button class="btn sm" data-act="stupre">${showPre ? '－ ซ่อนคำนำหน้า' : '＋ เพิ่มคำนำหน้า'}</button>
+          <button class="btn sm" data-act="stdfill" data-k="def">ตั้ง เชื้อชาติ/สัญชาติ = ไทย ศาสนา = พุทธ ให้ที่ว่าง</button><button class="btn sm" data-act="stdfill" data-k="addr">เติมตำบล/อำเภอ/จังหวัด/ไปรษณีย์ จากคนที่ 1</button></div></div>
+      <div class="tw"><table class="t sheet prof"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${body}</tbody></table></div>
+      ${rows < MAX_STU ? '<p><button class="btn" data-act="addrows" data-key="stuRows">＋ เพิ่ม 5 แถว</button></p>' : ''}`
+      .replace(/(<input class="gc"[^>]*data-c="8")/g, '$1 list="prefixes"');
+  }
+  // เติมค่าให้ช่องที่ว่าง
+  function stdFill(kind) {
+    const n = nStudents(); if (!n) return;
+    const specs = kind === 'def' ? [[17, 'ไทย'], [18, 'ไทย'], [19, 'พุทธ']] : [[49], [50], [51], [52]];
+    for (const [col, dflt] of specs) {
+      const base = dflt !== undefined ? dflt : get(ST, 3, col); if (base === null || base === '') continue;
+      for (let i = 0; i < n; i++) { const v = get(ST, 3 + i, col); if (v === null || v === '') setv(ST, 3 + i, col, base); }
+    }
+    refresh();
+  }
+  // นำเข้าไฟล์ DMC (.xlsx) — แทนที่รายชื่อนักเรียนของห้องนี้
+  async function importDmc(file) {
+    if (!file) return;
+    let res;
+    try { res = await root.PPDmc.parse(file); } catch (e) { A().toast('อ่านไฟล์ไม่ได้: ' + (e.message || e), 'warn'); return; }
+    if (!res.classes.length) { A().toast('ไม่พบรายชื่อนักเรียนในไฟล์', 'warn'); return; }
+    const S = A().S, want = 'ป.' + S.grade;
+    const def = res.classes.find(c => c.cls === want && String(c.room) === String(S.room)) || res.classes.find(c => c.cls === want) || res.classes[0];
+    let pick = def.key;
+    const opts = res.classes.map(c => `<option value="${esc(c.key)}"${c.key === def.key ? ' selected' : ''}>${esc(c.label)} · ${c.rows.length} คน</option>`).join('');
+    const had = nStudents();
+    const ok = await A().modal('นำเข้าไฟล์ DMC', `<p>เลือกชั้น/ห้องในไฟล์ที่จะนำเข้ามายัง <b>${esc(A().roomLabel(S.grade, S.room))}</b></p>
+      <label class="fld"><span>ชั้น/ห้องในไฟล์</span><select id="dmc-class">${opts}</select></label>
+      <p class="hint">${had ? `⚠ รายชื่อเดิม ${had} คนในห้องนี้จะถูกแทนที่ (คะแนนที่กรอกไว้ผูกกับเลขที่ จะตรงกับรายชื่อใหม่ตามลำดับ)` : 'นำเข้าเป็นรายชื่อใหม่ของห้องนี้'}</p>`,
+      [{ label: 'ยกเลิก', value: false }, { label: 'นำเข้า', value: true, primary: true }].map(b => b));
+    // modal ลบ DOM เมื่อกดปุ่ม — อ่านตัวเลือกที่เลือกไว้ล่าสุดจากเหตุการณ์ change
+    if (!ok) return;
+    const cls = res.classes.find(c => c.key === (window.__dmcPick || pick)) || def;
+    window.__dmcPick = null;
+    A().S.batch = true;
+    try {
+      const old = Math.max(had, 3), cols = [...new Set([...Object.values(root.PPDmc.COL), 25, 52])];
+      for (let i = 0; i < Math.max(old, cls.rows.length); i++) for (const c of cols) if (get(ST, 3 + i, c) !== null && get(ST, 3 + i, c) !== '') setv(ST, 3 + i, c, null);
+      for (let i = 0; i < Math.max(old, cls.rows.length); i++) for (const c of [27, 28, 29, 30, 31]) if (get(ROSTER, 2 + i, c) !== null && get(ROSTER, 2 + i, c) !== '') setv(ROSTER, 2 + i, c, null);
+      const C_ = root.PPDmc.COL;
+      cls.rows.slice(0, MAX_STU).forEach((o, i) => {
+        const r = 3 + i;
+        for (const [k, c] of Object.entries(C_)) {
+          let v = o[k]; if (v === undefined || v === '') continue;
+          if (k === 'birth') { const d = A().parseInput(ST, 13, v); v = d === null ? v : d; }
+          setv(ST, r, c, v);
+        }
+        setv(ST, r, 4, 'ประถมศึกษาปีที่ ' + S.grade); setv(ST, r, 5, S.room);
+      });
+      A().S.userEdits[ST] = A().S.userEdits[ST] || {};
+    } finally { A().S.batch = false; A().markDirty(); }
+    U.stuPrefix = undefined; refresh(); A().toast('นำเข้า ' + Math.min(MAX_STU, cls.rows.length) + ' คน จาก ' + cls.label, 'ok');
   }
   const GROUPS8 = ['ภาษาไทย', 'คณิตศาสตร์', 'วิทยาศาสตร์และเทคโนโลยี', 'สังคมศึกษา ศาสนา และวัฒนธรรม', 'สุขศึกษาและพลศึกษา', 'ศิลปะ', 'การงานอาชีพและเทคโนโลยี', 'ภาษาต่างประเทศ', 'รายวิชาเพิ่มเติม'];
   function vSubjects() {
@@ -368,15 +434,11 @@
   // เก็บในชีท ข้อมูลนักเรียน (แถว 3+) และ ข้อมูลเพิ่มเติม (ความเห็นครู แถว 2+) — เล่ม ปพ.6 ดึงไปแสดงเอง
   // หมายเหตุ: ป้าย เชื้อชาติ/สัญชาติ ตรงกับที่เล่ม ปพ.6 พิมพ์ (ในไฟล์ต้นฉบับคอลัมน์ Q/R ป้ายสลับกัน)
   const PROF = {
-    id: { title: 'ข้อมูลนักเรียน', cols: [['รหัสนักเรียน', ST, 6, 'text', 3], ['เลขประจำตัวประชาชน', ST, 3, 'text', 3, 'wide'], ['วันเกิด (วว/ดด/ปปปป)', ST, 13, 'date', 3], ['เพศ (ช/ญ)', ST, 7, 'sex', 3], ['เชื้อชาติ', ST, 17, 'text', 3], ['สัญชาติ', ST, 18, 'text', 3], ['ศาสนา', ST, 19, 'text', 3]], fill: [[17, 'ไทย'], [18, 'ไทย'], [19, 'พุทธ']], fillLabel: 'ตั้ง เชื้อชาติ/สัญชาติ = ไทย ศาสนา = พุทธ ให้ทุกคนที่ว่าง' },
-    family: { title: 'บิดา · มารดา', cols: [['สถานภาพสมรสของบิดา-มารดา', ST, 25, 'text', 3, 'wide'], ['คำนำหน้าบิดา', ST, 27, 'text', 3], ['ชื่อบิดา', ST, 28, 'text', 3], ['นามสกุลบิดา', ST, 29, 'text', 3], ['อาชีพบิดา', ST, 81, 'text', 3], ['คำนำหน้ามารดา', ST, 33, 'text', 3], ['ชื่อมารดา', ST, 34, 'text', 3], ['นามสกุลมารดา', ST, 35, 'text', 3], ['อาชีพมารดา', ST, 82, 'text', 3]] },
-    guard: { title: 'ผู้ปกครอง', cols: [['ความเกี่ยวข้องกับนักเรียน', ST, 38, 'text', 3, 'wide'], ['คำนำหน้า', ST, 40, 'text', 3], ['ชื่อผู้ปกครอง', ST, 41, 'text', 3], ['นามสกุล', ST, 42, 'text', 3], ['อาชีพ', ST, 83, 'text', 3]] },
-    addr: { title: 'ที่อยู่ปัจจุบัน', cols: [['บ้านเลขที่', ST, 46, 'text', 3], ['หมู่', ST, 47, 'text', 3], ['ตำบล', ST, 49, 'text', 3], ['อำเภอ', ST, 50, 'text', 3], ['จังหวัด', ST, 51, 'text', 3], ['รหัสไปรษณีย์', ST, 52, 'text', 3]], fill: [[49], [50], [51], [52]], fillLabel: 'เติม ตำบล อำเภอ จังหวัด รหัสไปรษณีย์ ของคนที่ 1 ให้คนที่ว่าง' },
     note: { title: 'ความเห็นครูประจำชั้น', cols: [['ด้านหน้าที่รับผิดชอบ ความเอาใจใส่การเรียน', ROSTER, 27, 'text', 2, 'note'], ['ด้านการใช้เวลาว่าง', ROSTER, 28, 'text', 2, 'note'], ['ด้านความสัมพันธ์กับบุคคลรอบข้าง', ROSTER, 29, 'text', 2, 'note'], ['ด้านอุปนิสัย บุคลิกภาพ', ROSTER, 30, 'text', 2, 'note'], ['ด้านสุขภาพ', ROSTER, 31, 'text', 2, 'note']] },
   };
-  function vProfile() {
-    const n = nStudents(); U.psub = PROF[U.psub] ? U.psub : 'id';
-    const head = `<div class="bar">${seg(Object.entries(PROF).map(([k, v]) => [k, v.title]), U.psub, 'psub')}</div>`;
+  function vNote() {
+    const n = nStudents(); U.psub = 'note';
+    const head = '';
     if (!n) return head + '<div class="card empty"><b>ยังไม่มีรายชื่อนักเรียน</b>กรอกที่แท็บ “นักเรียน” ก่อน</div>';
     const P_ = PROF[U.psub];
     let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>' + P_.cols.map(c => `<th>${esc(c[0])}</th>`).join(''), body = '';
@@ -386,16 +448,6 @@
     const tools = P_.fill ? `<div class="bar"><button class="btn sm" data-act="proffill">${esc(P_.fillLabel)}</button></div>` : '';
     const hint = U.psub === 'note' ? 'ข้อความสั้น ๆ ต่อด้าน จะพิมพ์ในหน้าความคิดเห็นของเล่ม ปพ.6' : 'คลิกช่องแล้วพิมพ์ · วางข้อมูลหลายช่องจาก Excel ได้ (Ctrl+V) · ข้อมูลนี้แสดงในเล่ม ปพ.6 (รายงานประจำตัวนักเรียน)';
     return head + `<p class="hint">${hint}</p>${tools}<div class="tw"><table class="t sheet prof ${U.psub}"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
-  }
-  function profFill() {
-    const P_ = PROF[U.psub], n = nStudents(); if (!P_.fill || !n) return;
-    for (const [col, dflt] of P_.fill) {
-      const spec = P_.cols.find(c => c[2] === col), r0 = spec[4];
-      const base = dflt !== undefined ? dflt : get(spec[1], r0, col);
-      if (base === null || base === '') continue;
-      for (let i = 0; i < n; i++) { const v = get(spec[1], r0 + i, col); if (v === null || v === '') setv(spec[1], r0 + i, col, base); }
-    }
-    refresh();
   }
   // วันที่ออกเอกสาร ปพ.6 (ใช้คำนวณอายุและวันที่ลงนามในเล่ม ปพ.6 ทั้ง 3 ฉบับ)
   const BOOKS = ['เล่ม ปพ.6 เทอม 1', 'เล่ม ปพ.6 เทอม 2', 'เล่ม ปพ.6 รวม'], BOOK_DATE = { r: 20, c: 'CX' };
@@ -1315,7 +1367,7 @@
   // ---------------------------------------------------------------- คู่มือ
   function vManual() {
     const S = [
-      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › ข้อมูลส่วนตัว</b> กรอกข้อมูลที่เล่ม ปพ.6 ใช้ (เลขประจำตัว วันเกิด บิดา-มารดา-ผู้ปกครอง ที่อยู่ ความเห็นครู) และตั้งวันที่ออกเอกสารที่ ข้อมูล › โรงเรียน</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม · ปุ่ม <b>ปรับหัวข้อ</b> ใช้ตั้งชื่อกลุ่ม/หัวข้อ เพิ่มหรือลบหัวข้อของคุณลักษณะ ค่านิยม และสมรรถนะ</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
+      ['เริ่มต้นใช้งาน', `<ol><li>แท็บ <b>ข้อมูล › โรงเรียน</b> กรอกปีการศึกษา ชื่อ ผอ. และครูประจำชั้น</li><li><b>ข้อมูล › นักเรียน</b> กรอกหรือคัดลอกรายชื่อจาก Excel มาวาง (สูงสุด ${MAX_STU} คน)</li><li><b>ข้อมูล › นักเรียน</b> กรอกข้อมูลที่เล่ม ปพ.6 ใช้ (เลขประจำตัว วันเกิด ที่อยู่ ผู้ปกครอง บิดา-มารดา) หรือกด <b>นำเข้าไฟล์ DMC (.xlsx)</b> · ความเห็นครูกรอกที่ ข้อมูล › ความเห็นครู · วันที่ออกเอกสารตั้งที่ ข้อมูล › โรงเรียน</li><li><b>ข้อมูล › รายวิชา</b> กรอกรหัสวิชา ชื่อวิชา เวลาเรียน และครูผู้สอน</li><li>แท็บ <b>คะแนน</b> เลือกวิชา ตั้งตัวชี้วัดและคะแนนเต็ม แล้วกรอกคะแนนทีละภาคเรียน</li><li>แท็บ <b>ประเมิน</b> เลือกระดับคุณลักษณะ ค่านิยม และกิจกรรม · ปุ่ม <b>ปรับหัวข้อ</b> ใช้ตั้งชื่อกลุ่ม/หัวข้อ เพิ่มหรือลบหัวข้อของคุณลักษณะ ค่านิยม และสมรรถนะ</li><li>แท็บ <b>รายงาน ปพ.5 / ปพ.6</b> ดูสรุปผลและพิมพ์</li></ol>`],
       ['การกรอกข้อมูลในตาราง', `<ul><li>คลิกช่องแล้วพิมพ์ · <kbd>Enter</kbd> / <kbd>↓</kbd> ลงช่องล่าง · <kbd>Tab</kbd> ไปช่องขวา</li><li>คัดลอกหลายช่องจาก Excel แล้ววาง (<kbd>Ctrl</kbd>+<kbd>V</kbd>) ที่ช่องแรกได้ทั้งตาราง</li><li>ระบบบันทึกอัตโนมัติ ดูสถานะที่มุมขวาบน หรือกดปุ่ม “บันทึก”</li></ul>`],
       ['ปฏิทินและเวลาเรียน', `<ol><li><b>ข้อมูล › ปฏิทิน · เวลาเรียน › 1. ปฏิทินวันเรียน</b> กรอกวันเปิด-ปิดเรียนของ 2 ภาคเรียน กด “สร้างปฏิทินวันเรียน” แล้วคลิกวันหยุดราชการเพื่อปิดวันเรียน</li><li>กด “เสร็จแล้ว → กรอกเวลาเรียน” ระบบดึงวันเรียนไปสร้างตารางเช็คชื่อของแต่ละเดือนให้เอง</li><li><b>2. กรอกเวลาเรียน</b> แตะช่องเพื่อเปลี่ยน ✓ มา · ข ขาด · ป ป่วย · ล ลา หรือกด “มาครบทั้งเดือน” แล้วแก้เฉพาะคนที่ขาด</li><li>พิมพ์ได้เป็นแบบฟอร์มรายเดือน 1 หน้าต่อเดือน พร้อมหน้าสรุปทั้งปี</li></ol><p><b>เวลาเรียนรายวิชา</b> (แต่ละวิชาสอนคนละวัน): หลังเช็คเวลาเรียนรายห้อง ให้ไปที่ <b>3. ตารางสอน</b> กรอกจำนวนคาบต่อวันของแต่ละวิชา แล้วดูผลที่ <b>4. เวลาเรียนรายวิชา</b> — ระบบดึงจากเวลาเรียนรายห้อง (ครูประจำชั้นเช็คทุกวัน) มาในวันนั้นถือว่ามาทุกวิชาที่สอนในวันนั้น ครูประจำวิชาไม่ต้องลงซ้ำ แต่แก้เฉพาะวิชาของตนได้เมื่อนักเรียนเรียนไม่เต็มวัน (แตะช่อง) วันที่ไม่มีสอน (เช่น ครูติดราชการ) กดวันที่ที่หัวตารางเพื่อปิด ร้อยละคิดจากคาบที่ครูประจำชั้นเช็คแล้ว เกณฑ์ไม่น้อยกว่าร้อยละ 80 · ดูสรุปรายชั้นและรายวิชาได้ที่ รายงาน ปพ.5 และรายบุคคลที่ รายงาน ปพ.6</p>`],
       ['พิมพ์เอกสาร', `<p>เมนู <b>เอกสาร</b> เปิดชีทแบบทางการและกดพิมพ์ได้ หน้า ปพ.6 เลือกนักเรียนแล้วพิมพ์คนเดียว หรือพิมพ์ทั้งห้อง ระบบแสดงตัวอย่างก่อนพิมพ์เสมอ</p>`],
