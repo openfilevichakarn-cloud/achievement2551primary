@@ -174,9 +174,9 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
-      case 'print-doc': if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
+      case 'print-doc': if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
       case 'cyc': cycle(b); break;
@@ -658,6 +658,7 @@
   function customPages(name) {
     const ms = /^วิชาที่ (\d+)$/.exec(name); if (ms) return subjDocPages(+ms[1]);
     if (ASSESS_DOCS[name]) return assessDocPages(name);
+    if (name === 'ชื่อนักเรียน') return [rosterPage()];
     if (name === ATT) return attPages('all');
     if (!hasSched()) return null;
     if (/^ปพ\.6 (เทอม [12]|รวม)$/.test(name)) { const i = Math.max(0, (num(name, 8, 11) || 1) - 1); return [...A().pagesFor(name), studentAttPage(i, termOfName(name))]; }
@@ -1169,6 +1170,18 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) rows += `<tr style="height:19px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${[3, 4, 5, 6, 7, 8, 9, 10].map(c => pcell(sv(get(BS, 7 + i, c)))).join('')}</tr>`;
     const html = `<div style="${PF}font-size:15px">${attHead('บันทึกน้ำหนัก-ส่วนสูงของนักเรียน')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล', 'width:190px')}${dts}</tr><tr><th style="${SB}"></th><th style="${SB}"></th>${thS('น้ำหนัก<br><small>(กก.)</small>').repeat(4).replace(/<\/th><th/g, '</th><th')}</tr>${rows}</table>${homeSign()}</div>`;
+    return { ...PG, html };
+  }
+  // รายชื่อนักเรียน (เอกสาร › สรุปผลรายชั้น › ชื่อนักเรียน): ดึงจาก ข้อมูล › นักเรียน
+  function rosterPage() {
+    const n = nStudents(); let m = 0, f = 0, rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const sex = txt(ST, 3 + i, 7).trim(); if (n) { if (sex === 'ช') m++; else if (sex === 'ญ') f++; }
+      rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell('')}</tr>`;
+    }
+    const html = `<div style="${PF}font-size:16px">${attHead('รายชื่อนักเรียน')}
+      <div style="display:flex;justify-content:space-between;margin:0 2px 4px;font-size:15px"><span>ครูประจำชั้น ${esc(realName(13) || '-')}</span><span>จำนวนนักเรียน <b>${n}</b> คน${m + f ? ` (ชาย ${m} · หญิง ${f})` : ''}</span></div>
+      <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('หมายเหตุ', 'width:130px')}</tr>${rows}</table>${homeSign()}</div>`;
     return { ...PG, html };
   }
   function assessDocPages(name) {
