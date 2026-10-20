@@ -176,7 +176,7 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (b.dataset.name === 'บิดามารดา' || b.dataset.name === 'ผู้ปกครอง') { A().showPreview(A().pagesFor(b.dataset.name)); break; } if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
       case 'print-doc': if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
@@ -817,10 +817,6 @@
     if (ASSESS_DOCS[name]) return assessDocPages(name);
     if (name === 'ชื่อนักเรียน') return [rosterPage()];
     if (name === ATT) return attPages('all');
-    if (!hasSched()) return null;
-    if (/^ปพ\.6 (เทอม [12]|รวม)$/.test(name)) { const i = Math.max(0, (num(name, 8, 11) || 1) - 1); return [...A().pagesFor(name), studentAttPage(i, termOfName(name))]; }
-    if (/^ปก ปพ\.5 รายชั้น (1|2|รวม)$/.test(name)) return [...A().pagesFor(name), classAttPage(termOfName(name))];
-    if (/^ปก ปพ\.5 รายวิชา (1|2|รวม)$/.test(name)) { const slot = num(name, 1, 'EM'); return weekPeriods(slot) ? [...A().pagesFor(name), sYearPage(slot, termOfName(name))] : null; }
     return null;
   }
 
@@ -1275,7 +1271,7 @@
 
   // ---------------------------------------------------------------- เอกสาร: คุณลักษณะ · ค่านิยม · กิจกรรม · น้ำหนัก-ส่วนสูง (ครูประจำชั้นเซ็น)
   // doc ชื่อเสมือน 'ประเมิน:trait|value|act|body' → 3 หน้า เทอม 1 · เทอม 2 · รวม (น้ำหนัก-ส่วนสูงหน้าเดียว)
-  const ASSESS_DOCS = { 'ประเมิน:trait': 'คุณลักษณะอันพึงประสงค์', 'ประเมิน:value': 'ค่านิยม · สมรรถนะ', 'ประเมิน:act': 'กิจกรรมพัฒนาผู้เรียน', 'ประเมิน:body': 'น้ำหนัก-ส่วนสูง', 'สรุป:score': 'คะแนนรายชั้น', 'สรุป:pct': 'คะแนนร้อยละ', 'สรุป:grade': 'เกรดรายชั้น', 'สรุป:dist': 'สรุปผลเกรดรายวิชา (จำนวน/ร้อยละ)', 'บิดามารดา': 'ข้อมูลบิดา-มารดา', 'ผู้ปกครอง': 'ข้อมูลผู้ปกครอง' };
+  const ASSESS_DOCS = { 'ประเมิน:trait': 'คุณลักษณะอันพึงประสงค์', 'ประเมิน:value': 'ค่านิยม · สมรรถนะ', 'ประเมิน:act': 'กิจกรรมพัฒนาผู้เรียน', 'ประเมิน:body': 'น้ำหนัก-ส่วนสูง', 'สรุป:score': 'คะแนนรายชั้น', 'สรุป:pct': 'คะแนนร้อยละ', 'สรุป:grade': 'เกรดรายชั้น', 'สรุป:dist': 'สรุปผลเกรดรายวิชา (จำนวน/ร้อยละ)' };
   const homeSign = () => `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div>`;
   const PG = { zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   const tdN = (x, o) => `<td style="${SB}padding:0 4px;white-space:nowrap;text-align:left;${o || ''}">${x}</td>`;
@@ -1374,17 +1370,7 @@
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปผลการประเมินผลสัมฤทธิ์ทางการเรียน ' + (term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term))}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows || `<tr><td colspan="25" style="${SB}padding:8px">ยังไม่มีรายวิชา</td></tr>`}</table>${homeSign()}</div>`;
     return { ...PG, land: false, html };
   }
-  function parentPage(kind) {
-    const n = nStudents(), sh = kind === 'family' ? 'บิดามารดา' : 'ผู้ปกครอง';
-    const heads = kind === 'family' ? ['ชื่อ-สกุล บิดา', 'อาชีพ', 'ชื่อ-สกุล มารดา', 'อาชีพ'] : ['ผู้ปกครอง', 'ความเกี่ยวข้อง', 'อาชีพ', 'ที่อยู่ปัจจุบัน'];
-    let rows = '';
-    for (let i = 0; i < Math.max(n, 1); i++) rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${[3, 4, 5, 6].map(c => tdN(esc(sv(get(sh, 3 + i, c)) || '-'), 'white-space:normal')).join('')}</tr>`;
-    const html = `<div style="${PF}font-size:15px">${attHead(kind === 'family' ? 'ข้อมูลบิดา-มารดาของนักเรียน' : 'ข้อมูลผู้ปกครองของนักเรียน')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล นักเรียน', 'width:170px')}${heads.map(x => thS(x)).join('')}</tr>${rows}</table>${homeSign()}</div>`;
-    return { ...PG, land: false, html };
-  }
   function assessDocPages(name) {
-    if (name === 'บิดามารดา') return [parentPage('family')];
-    if (name === 'ผู้ปกครอง') return [parentPage('guard')];
     if (name.startsWith('สรุป:')) { const k = name.split(':')[1]; return [1, 2, 'sum'].map(tm => k === 'dist' ? sumDistPage(tm) : sumClassPage(k, tm)); }
     const k = name.slice(name.indexOf(':') + 1);
     if (k === 'body') return [bodyPage()];

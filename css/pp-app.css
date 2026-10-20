@@ -189,3 +189,6 @@ input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
 .pp-page{position:relative}
 .pp-page .wm-layer{position:absolute;inset:-25%;gap:150px 120px;z-index:5}
 .pp-page .wm-layer span{font-size:46px;color:rgba(220,38,38,.13)}
+
+/* หน้าพิมพ์/ตัวอย่างก่อนพิมพ์: ไม่ใส่สีพื้น (ขาว-ดำ) ตามแบบฟอร์มที่ใช้พิมพ์จริง */
+.pp-page table.xl td,.pp-page table.xl th{background:transparent!important;color:#000!important}
