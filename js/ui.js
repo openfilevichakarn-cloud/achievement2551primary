@@ -1275,7 +1275,7 @@
 
   // ---------------------------------------------------------------- เอกสาร: คุณลักษณะ · ค่านิยม · กิจกรรม · น้ำหนัก-ส่วนสูง (ครูประจำชั้นเซ็น)
   // doc ชื่อเสมือน 'ประเมิน:trait|value|act|body' → 3 หน้า เทอม 1 · เทอม 2 · รวม (น้ำหนัก-ส่วนสูงหน้าเดียว)
-  const ASSESS_DOCS = { 'ประเมิน:trait': 'คุณลักษณะอันพึงประสงค์', 'ประเมิน:value': 'ค่านิยม · สมรรถนะ', 'ประเมิน:act': 'กิจกรรมพัฒนาผู้เรียน', 'ประเมิน:body': 'น้ำหนัก-ส่วนสูง' };
+  const ASSESS_DOCS = { 'ประเมิน:trait': 'คุณลักษณะอันพึงประสงค์', 'ประเมิน:value': 'ค่านิยม · สมรรถนะ', 'ประเมิน:act': 'กิจกรรมพัฒนาผู้เรียน', 'ประเมิน:body': 'น้ำหนัก-ส่วนสูง', 'สรุป:score': 'คะแนนรายชั้น', 'สรุป:pct': 'คะแนนร้อยละ', 'สรุป:grade': 'เกรดรายชั้น', 'สรุป:dist': 'สรุปผลเกรดรายวิชา (จำนวน/ร้อยละ)', 'บิดามารดา': 'ข้อมูลบิดา-มารดา', 'ผู้ปกครอง': 'ข้อมูลผู้ปกครอง' };
   const homeSign = () => `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div>`;
   const PG = { zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   const tdN = (x, o) => `<td style="${SB}padding:0 4px;white-space:nowrap;text-align:left;${o || ''}">${x}</td>`;
@@ -1341,7 +1341,48 @@
       <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('หมายเหตุ', 'width:130px')}</tr>${rows}</table>${homeSign()}</div>`;
     return { ...PG, html };
   }
+  // ---- สรุปผลรายชั้น (ไม่ใช้สี) อ่านค่าจากชีท คะแนนรายชั้น / คะแนนร้อยละ / เกรดรายชั้น / เกรดร้อยละ ซึ่งคำนวณไว้แล้ว
+  const SUMDOC = { score: ['คะแนนรายชั้น', 'คะแนนผลการเรียน', true], pct: ['คะแนนร้อยละ', 'คะแนนผลการเรียนร้อยละ', true], grade: ['เกรดรายชั้น', 'ระดับผลการเรียน', false] };
+  const subjCols = (sh) => { const out = []; for (let c = 3; c <= 22; c++) { const v = get(sh, 4, c); if (v !== null && v !== '' && !(v && v.code)) out.push(c); } return out; };
+  const rotTh = (x) => `<th style="${SB}height:118px;padding:2px 0"><div style="writing-mode:vertical-rl;transform:rotate(180deg);margin:0 auto;white-space:nowrap;font-weight:400;font-size:13px">${esc(x)}</div></th>`;
+  function sumClassPage(kind, term) {
+    const [pre, title, hasFoot] = SUMDOC[kind], sh = pre + ' ' + (term === 'sum' ? 'รวม' : term), n = nStudents(), cs = subjCols(sh);
+    const tl = term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term, isG = kind === 'grade';
+    let h = `<tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล', 'width:190px')}${cs.map(c => rotTh(txt(sh, 4, c))).join('')}${isG ? thS('ผลการเรียน<br>เฉลี่ย') + thS('ลำดับที่') : thS('รวม') + thS('ร้อยละ') + thS('ลำดับที่')}</tr>`;
+    if (!isG) h += `<tr style="height:19px"><td style="${SB}"></td>${tdN('คะแนนเต็ม')}${cs.map(c => pcell(sv(get(sh, 5, c)))).join('')}${pcell(sv(get(sh, 5, 23)))}${pcell(sv(get(sh, 5, 24)))}${pcell('')}</tr>`;
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = 6 + i;
+      rows += `<tr style="height:19px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${cs.map(c => pcell(sv(get(sh, r, c)))).join('')}${isG ? pcell(sv(get(sh, r, 23))) + pcell(sv(get(sh, r, 24))) : pcell(sv(get(sh, r, 23))) + pcell(sv(get(sh, r, 24))) + pcell(sv(get(sh, r, 25)))}</tr>`;
+    }
+    let foot = '';
+    if (hasFoot) for (const [r, lab] of [[51, 'รวม'], [52, 'เฉลี่ย'], [53, 'เฉลี่ย %']]) foot += `<tr style="height:19px;font-weight:700"><td style="${SB}"></td>${tdN(lab)}${cs.map(c => pcell(sv(get(sh, r, c)))).join('')}${pcell('')}${pcell('')}${pcell('')}</tr>`;
+    const html = `<div style="${PF}font-size:15px">${attHead('ผลการพัฒนาคุณภาพผู้เรียน · ' + title + ' ' + tl)}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}${foot}</table>${homeSign()}</div>`;
+    return { ...PG, land: cs.length > 7, html };
+  }
+  function sumDistPage(term) {
+    const sh = 'เกรดร้อยละ ' + (term === 'sum' ? 'รวม' : term), GR = ['มส', 'ร', '0', '1', '1.5', '2', '2.5', '3', '3.5', '4'];
+    let h = `<tr>${thS('รายวิชา', 'width:190px').replace('<th ', '<th rowspan="3" ')}<th colspan="3" rowspan="2" style="${SB}font-weight:400">จำนวนนักเรียนเข้าสอบ</th><th colspan="20" style="${SB}font-weight:400">ระดับผลการเรียน</th></tr><tr>${GR.map(g => `<th colspan="2" style="${SB}font-weight:400">${g}</th>`).join('')}</tr><tr>${['ชาย', 'หญิง', 'รวม'].map(x => thS(x)).join('')}${GR.map(() => thS('จำนวน', 'font-size:12px') + thS('%', 'font-size:12px')).join('')}</tr>`;
+    let rows = '';
+    for (let r = 8; r <= 27; r++) {
+      const name = txt(sh, r, 1); if (!name) continue;
+      rows += `<tr style="height:21px">${tdN(esc(name))}${[2, 3, 4].map(c => pcell(sv(get(sh, r, c)))).join('')}${Array.from({ length: 20 }, (_, k) => { const v = get(sh, r, 5 + k); return pcell(k % 2 && typeof v === 'number' ? (Math.round(v * 100) / 100).toFixed(2) : sv(v), 'font-size:13px'); }).join('')}</tr>`;
+    }
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปผลการประเมินผลสัมฤทธิ์ทางการเรียน ' + (term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term))}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows || `<tr><td colspan="25" style="${SB}padding:8px">ยังไม่มีรายวิชา</td></tr>`}</table>${homeSign()}</div>`;
+    return { ...PG, land: true, html };
+  }
+  function parentPage(kind) {
+    const n = nStudents(), sh = kind === 'family' ? 'บิดามารดา' : 'ผู้ปกครอง';
+    const heads = kind === 'family' ? ['ชื่อ-สกุล บิดา', 'อาชีพ', 'ชื่อ-สกุล มารดา', 'อาชีพ'] : ['ผู้ปกครอง', 'ความเกี่ยวข้อง', 'อาชีพ', 'ที่อยู่ปัจจุบัน'];
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${[3, 4, 5, 6].map(c => tdN(esc(sv(get(sh, 3 + i, c)) || '-'), 'white-space:normal')).join('')}</tr>`;
+    const html = `<div style="${PF}font-size:15px">${attHead(kind === 'family' ? 'ข้อมูลบิดา-มารดาของนักเรียน' : 'ข้อมูลผู้ปกครองของนักเรียน')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล นักเรียน', 'width:170px')}${heads.map(x => thS(x)).join('')}</tr>${rows}</table>${homeSign()}</div>`;
+    return { ...PG, land: true, html };
+  }
   function assessDocPages(name) {
+    if (name === 'บิดามารดา') return [parentPage('family')];
+    if (name === 'ผู้ปกครอง') return [parentPage('guard')];
+    if (name.startsWith('สรุป:')) { const k = name.split(':')[1]; return [1, 2, 'sum'].map(tm => k === 'dist' ? sumDistPage(tm) : sumClassPage(k, tm)); }
     const k = name.slice(name.indexOf(':') + 1);
     if (k === 'body') return [bodyPage()];
     return [1, 2, 'sum'].map(t => k === 'act' ? actPage(t) : assessPage(k, t));
@@ -1408,12 +1449,13 @@
   // ---------------------------------------------------------------- เอกสาร (ชีทแบบ Excel)
   function vDocs() {
     const groups = A().sheetGroups();
-    for (const g of groups) if (g.items.some(x => /^(คุณลักษณะ|ค่านิยม|กิจกรรม) /.test(x))) g.items = [...Object.keys(ASSESS_DOCS).filter(k => k !== 'ประเมิน:body'), ...g.items.filter(x => !/^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^น้ำหนัก-ส่วนสูง$|^เวลาเรียน$/.test(x)), 'ประเมิน:body'];
+    for (const g of groups) if (g.items.some(x => /^(คุณลักษณะ|ค่านิยม|กิจกรรม) /.test(x))) g.items = [...Object.keys(ASSESS_DOCS).filter(k => k.startsWith('ประเมิน:') && k !== 'ประเมิน:body'), ...g.items.filter(x => !/^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^น้ำหนัก-ส่วนสูง$|^เวลาเรียน$/.test(x)), 'ประเมิน:body'];
     const gi = groups.findIndex(g => g.items.includes('ประเมิน:body'));
     groups.splice(gi + 1, 0, { title: 'เวลาเรียนประจำชั้น', items: [ATT] }, { title: 'เวลาเรียนรายวิชา', items: subjects().map(s => 'เวลาเรียนวิชา:' + s.slot) });
+    for (const g of groups) if (g.items.some(x => /^(คะแนนรายชั้น|คะแนนร้อยละ|เกรดรายชั้น|เกรดร้อยละ) /.test(x))) g.items = ['ชื่อนักเรียน', 'บิดามารดา', 'ผู้ปกครอง', 'สรุป:score', 'สรุป:pct', 'สรุป:grade', 'สรุป:dist'];
     return `<div class="bar"><input class="in" data-search placeholder="ค้นหาเอกสาร เช่น ปพ.6, คะแนน, วิชาที่ 3" value="${esc(U.docq)}" style="max-width:420px"></div>
       <p class="hint">เปิดชีทแบบ Excel เพื่อดู แก้ไขช่องที่กรอกได้ หรือพิมพ์ — ข้อมูลเดียวกับที่กรอกในเมนูอื่น</p>
-      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : '', ma = /^เวลาเรียนวิชา:(\d+)$/.exec(nm); return `<div class="ditem" data-q="${esc((nm + ' ' + sn + (ma ? ' ' + subjName(+ma[1]) : '')).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(ma ? subjName(+ma[1]) + ' (รายเดือน + สรุปเทอม)' : nm === ATT ? 'เวลาเรียนประจำชั้น (รายเดือน + สรุปเทอม)' : ASSESS_DOCS[nm] ? ASSESS_DOCS[nm] + (nm === 'ประเมิน:body' ? '' : ' (เทอม 1 · เทอม 2 · รวม)') : nm)}${ma && !weekPeriods(+ma[1]) ? ' <span class="hint">ยังไม่ได้ตั้งตารางสอน</span>' : ''}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
+      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : '', ma = /^เวลาเรียนวิชา:(\d+)$/.exec(nm); return `<div class="ditem" data-q="${esc((nm + ' ' + sn + (ma ? ' ' + subjName(+ma[1]) : '')).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(ma ? subjName(+ma[1]) + ' (รายเดือน + สรุปเทอม)' : nm === ATT ? 'เวลาเรียนประจำชั้น (รายเดือน + สรุปเทอม)' : ASSESS_DOCS[nm] ? ASSESS_DOCS[nm] + (/^(ประเมิน:(trait|value|act)|สรุป:)/.test(nm) ? ' (เทอม 1 · เทอม 2 · รวม)' : '') : nm)}${ma && !weekPeriods(+ma[1]) ? ' <span class="hint">ยังไม่ได้ตั้งตารางสอน</span>' : ''}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
   }
   function docFilter() {
     const q = U.docq.trim().toLowerCase();
