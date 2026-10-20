@@ -306,7 +306,7 @@
     <div class="card"><h3>ตราโรงเรียน</h3>
       <div class="row">${S.view.logo ? `<img src="${S.view.logo}" alt="ตราโรงเรียน" style="height:84px;width:84px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:12px">` : '<span class="hint">ยังไม่ได้ใส่ตรา</span>'}
         <button class="btn primary" data-act="logo">เลือกรูปตรา</button>${S.view.logo ? '<button class="btn danger" data-act="logo-del">ลบตรา</button>' : ''}</div>
-      <p class="hint">ตราจะแสดงที่มุมซ้ายบนของปก ปพ.5 ปพ.6 และใบรับรอง ใช้ร่วมกันทุกชั้นทุกห้อง (ไฟล์ PNG/JPG)</p></div>`;
+      <p class="hint">ตราจะแสดงที่มุมซ้ายบนของปก ปพ.5 และ ปพ.6 ใช้ร่วมกันทุกชั้นทุกห้อง (ไฟล์ PNG/JPG)</p></div>`;
   }
   const PREFIX = ['เด็กชาย', 'เด็กหญิง', 'นาย', 'นางสาว', 'นาง'];
   // เพศ (คอลัมน์ G) ใช้นับชาย/หญิงในปก ปพ.5 — เดาจากคำนำหน้า/ต้นชื่อ เมื่อยังไม่ได้กรอก

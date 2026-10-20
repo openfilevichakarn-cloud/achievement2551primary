@@ -331,17 +331,16 @@
     ['เริ่มต้นใช้งาน', /^(สารบัญ|คู่มือ|ข้อมูลพื้นฐาน|รายวิชา|ข้อมูลนักเรียน|ข้อมูลเพิ่มเติม|ปฏิทิน)$/],
     ['บันทึกผลรายวิชา', /^วิชาที่ \d+$/],
     ['คุณลักษณะ · กิจกรรม · เวลาเรียน', /^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^(เวลาเรียน|น้ำหนัก-ส่วนสูง|เอกสารแนบท้าย)$/],
-    ['โภชนาการ', /โภชนาการ|ความชุก/],
     ['สรุปผลรายชั้น', /^(คะแนนรายชั้น|คะแนนร้อยละ|เกรดรายชั้น|เกรดร้อยละ) |^(ชื่อนักเรียน|บิดามารดา|ผู้ปกครอง)$/],
     ['ปก ปพ.5', /^ปก /],
-    ['ปพ.6 และใบรับรอง', /ปพ\.6|ใบรับรอง|คำชี้แจง/],
+    ['ปพ.6', /ปพ\.6|คำชี้แจง/],
   ];
   const subjName = (n) => { const v = S.wb.get(S.wb.sheet(SUBJ), 5 + n, 3); return v === null || v === '' || P.isErr(v) ? '' : String(v); };
   // รายการชีทแยกกลุ่ม (ใช้ในเมนู "เอกสาร")
   function sheetGroups() {
     const groups = GROUPS.map(g => ({ title: g[0], re: g[1], items: [] })); const other = { title: 'อื่น ๆ', items: [] };
     for (const sh of S.wb.sheets) {
-      if (sh.def.hidden) continue;
+      if (sh.def.hidden || /โภชนาการ|ความชุก|^ใบรับรอง$/.test(sh.name)) continue;   // ไม่ใช้ในเว็บนี้
       (groups.find(g => g.re.test(sh.name)) || other).items.push(sh.name);
     }
     return [...groups, other].filter(g => g.items.length && g.title !== 'เริ่มต้นใช้งาน');   // ชีทกรอกข้อมูลต้นทางมีหน้ากรอกแบบเว็บอยู่แล้ว (ข้อมูล ›) ไม่แสดงในเมนูเอกสาร
@@ -360,12 +359,11 @@
     r2 = Math.max(r2, Math.min(sh.def.dim[0], MIN_ROWS[name] || 0));
     return (extent[name] = 'A1:' + P.numToCol(c2) + r2);
   }
-  // ตราโรงเรียนวางมุมซ้ายบนของปก ปพ.5 / ปพ.6 / ใบรับรอง (ไม่ล้ำแถว limitRow)
+  // ตราโรงเรียนวางมุมซ้ายบนของปก ปพ.5 / ปพ.6 (ไม่ล้ำแถว limitRow)
   function logoAnchor(name) {
     if (/^ปก ปพ\.5 /.test(name)) return { r: 2, c: 2, limitRow: 5 };
     if (/^เล่ม ปพ\.6/.test(name)) return { r: 2, c: 1, limitRow: 7 };
     if (/^ปพ\.6 /.test(name)) return { r: 1, c: 1, limitRow: 2 };
-    if (name === 'ใบรับรอง') return { r: 1, c: 2, limitRow: 5 };
     return null;
   }
   // ตราเก็บที่เดียวต่อโรงเรียน ใช้กับทุกชั้น ทุกห้อง
