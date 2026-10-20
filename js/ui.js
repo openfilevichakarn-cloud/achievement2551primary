@@ -174,7 +174,8 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': A().openSheet(b.dataset.name); break;
+      case 'doc': { const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'docx': A().openSheet(b.dataset.name); break;
       case 'print-doc': A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
@@ -608,7 +609,54 @@
   // หน้าพิมพ์ที่ประกอบพิเศษ: เวลาเรียนรายวิชาต่อท้ายเอกสาร ปพ.5 / ปพ.6 ทุกครั้งที่พิมพ์ (ถ้าตั้งตารางสอนแล้ว)
   const hasSched = () => calTotal() > 0 && subjects().some(x => weekPeriods(x.slot));
   const termOfName = (n) => (/รวม$/.test(n) ? 'sum' : /เทอม ?2$|\b2$/.test(n) ? 2 : 1);
+  // ---------------------------------------------------------------- บันทึกผลรายวิชา (เอกสาร › วิชาที่ N): แยกหน้า เทอม 1 · เทอม 2 · รวม
+  // คอลัมน์ตัวชี้วัดดึงจากเมนู คะแนน ของวิชานั้น (ชื่อ + คะแนนเต็ม + คะแนนที่ได้) ตั้งแต่เลขที่ถึงผลการประเมิน
+  const SB = 'border:1px solid #000;';
+  const sv = (v) => (v === null || v === undefined || v === '' || (v && v.code) || (v && v.isRange)) ? '' : fmt2(v);
+  function subjHead(slot, title, sub) {
+    const ratio = [num('วิชาที่ ' + slot, 3, 'DA'), num('วิชาที่ ' + slot, 3, 'DC')];
+    return `${attHead(title)}<div style="${PF}display:flex;justify-content:space-between;font-size:15px;margin:0 2px 4px"><span>รายวิชา <b>${esc(subjName(slot))}</b> รหัส ${esc(txt(SUBJ, 5 + slot, 2) || '-')} · ${esc(txt(SUBJ, 5 + slot, 4) ? 'เวลาเรียน ' + txt(SUBJ, 5 + slot, 4) + ' ชั่วโมง' : '')}</span><span>${sub || ''} สัดส่วนระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])}</span></div>`;
+  }
+  function subjFoot(slot) {
+    return `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูผู้สอน', txt(SUBJ, 5 + slot, 6))}${sign('หัวหน้างานวิชาการ', realName(12))}${sign('ผู้อำนวยการโรงเรียน', realName(9))}</div>`;
+  }
+  function scoreTermPage(slot, term) {
+    const sh = 'วิชาที่ ' + slot, T = SC[term], n = nStudents();
+    let nw = 0; for (let c = T.work[0]; c <= T.work[1]; c++) if ((num(sh, SC_MAX, c) || 0) > 0) nw = c - T.work[0] + 1;
+    const th = (x, o) => `<th style="${SB}font-weight:400;${o || ''}">${x}</th>`;
+    let h = `<tr>${th('ที่', 'width:26px')}${th('ชื่อ - สกุล', 'width:190px')}`;
+    for (let j = 0; j < nw; j++) h += th(`${esc(txt(sh, SC_NAME, T.work[0] + j) || 'ตัวชี้วัดที่ ' + (j + 1))}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small>`, 'min-width:44px');
+    h += th(`ระหว่างเรียน<br><small>(${fmt2(num(sh, 3, 'DA'))})</small>`) + th(`สอบปลายภาค<br><small>(${fmt2(num(sh, 3, 'DC'))})</small>`) + th('รวม<br><small>(100)</small>') + th('ร้อยละ') + th('ระดับผล<br>การเรียน') + '</tr>';
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = IND_ROW + i;
+      rows += `<tr style="height:19px">${pcell(i + 1)}<td style="${SB}padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`;
+      for (let j = 0; j < nw; j++) rows += pcell(sv(get(sh, r, T.work[0] + j)));
+      rows += [T.btw, T.exam, T.total, T.pct].map(c => pcell(sv(get(sh, r, c)))).join('') + pcell(sv(get(sh, r, T.grade)), 'font-weight:700;') + '</tr>';
+    }
+    const html = `<div style="${PF}font-size:15px">${subjHead(slot, 'บันทึกผลการเรียนรายวิชา ' + subjName(slot), 'ภาคเรียนที่ ' + term + ' ·')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}</table>${subjFoot(slot)}</div>`;
+    return { html, zoom: 1, land: nw > 6, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+  }
+  function scoreYearPage(slot) {
+    const sh = 'วิชาที่ ' + slot, n = nStudents();
+    const th = (x, o) => `<th style="${SB}font-weight:400;${o || ''}">${x}</th>`;
+    const sub = ['คะแนนเก็บ', 'สอบ', 'รวม', 'ร้อยละ', 'ระดับ'];
+    let h = `<tr>${th('ที่', 'width:26px', 2)}${th('ชื่อ - สกุล', 'width:190px')}${['ภาคเรียนที่ 1', 'ภาคเรียนที่ 2', 'รวมทั้งปี'].map(x => `<th colspan="5" style="${SB}">${x}</th>`).join('')}</tr><tr><th style="${SB}"></th><th style="${SB}"></th>${[0, 1, 2].map(() => sub.map(x => th(x)).join('')).join('')}</tr>`;
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = IND_ROW + i, g = (c) => get(sh, r, c), a = (c1, c2) => { const x = g(c1), y = g(c2); return typeof x === 'number' || typeof y === 'number' ? (x || 0) + (y || 0) : ''; };
+      rows += `<tr style="height:19px">${pcell(i + 1)}<td style="${SB}padding:0 4px;white-space:nowrap;text-align:left">${esc(stuName(i))}</td>`
+        + [g(C('EI')), g(C('EJ')), g(C('EK')), g(C('EL'))].map(v => pcell(sv(v))).join('') + pcell(sv(g(SC[1].grade)), 'font-weight:700;')
+        + [g(C('EM')), g(C('EN')), g(C('EO')), g(C('EP'))].map(v => pcell(sv(v))).join('') + pcell(sv(g(SC[2].grade)), 'font-weight:700;')
+        + [a(C('EI'), C('EM')), a(C('EJ'), C('EN')), g(C('EQ')), g(C('ER'))].map(v => pcell(sv(v))).join('') + pcell(sv(g(C('ES'))), 'font-weight:700;') + '</tr>';
+    }
+    const html = `<div style="${PF}font-size:15px">${subjHead(slot, 'สรุปผลการเรียนรายวิชา ' + subjName(slot) + ' รวมทั้งปี', '')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}</table>${subjFoot(slot)}</div>`;
+    return { html, zoom: 1, land: true, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+  }
+  const subjDocPages = (slot) => [scoreTermPage(slot, 1), scoreTermPage(slot, 2), scoreYearPage(slot)];
+
   function customPages(name) {
+    const ms = /^วิชาที่ (\d+)$/.exec(name); if (ms) return subjDocPages(+ms[1]);
     if (name === ATT) return attPages('all');
     if (!hasSched()) return null;
     if (/^ปพ\.6 (เทอม [12]|รวม)$/.test(name)) { const i = Math.max(0, (num(name, 8, 11) || 1) - 1); return [...A().pagesFor(name), studentAttPage(i, termOfName(name))]; }
@@ -949,7 +997,7 @@
     }
     return cfg + `<p class="hint">คลิกช่องแล้วพิมพ์คะแนน · ลูกศร/Enter เลื่อนช่อง · วางคะแนนหลายช่องจาก Excel ได้ (Ctrl+V)</p>
       <div class="tw"><table class="t sheet"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
-      <p style="margin-top:10px"><button class="btn danger sm" data-act="clearall">ล้างคะแนนภาคเรียนนี้</button> <button class="btn sm" data-act="doc" data-name="${esc(sh)}">เปิดชีทเต็มรูปแบบ (Excel)</button></p>`;
+      <p style="margin-top:10px"><button class="btn danger sm" data-act="clearall">ล้างคะแนนภาคเรียนนี้</button> <button class="btn sm" data-act="docx" data-name="${esc(sh)}">เปิดชีทเต็มรูปแบบ (Excel)</button></p>`;
   }
   function vScoreYear(n) {
     // คอลัมน์ผลรายภาคของชีท: EI-EL = เทอม 1 (ระหว่างภาค ปลายภาค รวม ร้อยละ) · EM-EP = เทอม 2 · EQ ER ES = รวมรายปี ร้อยละ ระดับ
