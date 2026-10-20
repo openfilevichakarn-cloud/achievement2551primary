@@ -566,6 +566,7 @@
   const PX = 96 / 25.4;
   function usedRows(name) { return R.parseRange(viewArea(name)).r2; }
   // แบ่งชีทเป็นหน้ากระดาษ A4: ย่อให้พอดีความกว้าง แล้วตัดหน้าตามเส้นแบ่งหน้าของไฟล์หรือเมื่อเต็มหน้า
+  let _mcv = null;
   function pagesFor(name) {
     const sh = S.wb.sheet(name), d = sh.def, pr = d.print || {};
     const land = pr.orient === 'landscape';
@@ -576,9 +577,17 @@
     const colHid = (c) => !!(d.cw[c] && d.cw[c].h);
     const colW = (c) => colHid(c) ? 0 : Math.round(((d.cw[c] && d.cw[c].w) || d.dcw) * 7 + 5);
     const rowHid = (r) => !!(d.rh[r] && d.rh[r].x);
-    const rowH = (r) => rowHid(r) ? 0 : Math.round(((d.rh[r] && d.rh[r].h) || d.drh) * 4 / 3);
+    const rowH0 = (r) => rowHid(r) ? 0 : Math.round(((d.rh[r] && d.rh[r].h) || d.drh) * 4 / 3);
+    // ที่อยู่ (ผู้ปกครอง คอลัมน์ F) ขึ้นบรรทัดใหม่ได้: ประเมินจำนวนบรรทัดจากความกว้างข้อความเพื่อแบ่งหน้าให้ถูก
+    const wrapLines = (r) => {
+      if (name !== 'ผู้ปกครอง' || r < 3) return 1;
+      const v = S.wb.get(sh, r, 6); if (typeof v !== 'string' || !v) return 1;
+      _mcv = _mcv || document.createElement('canvas').getContext('2d'); _mcv.font = "18.7px 'TH Sarabun New','Sarabun',sans-serif";
+      return Math.max(1, Math.ceil(_mcv.measureText(v).width * 0.85 / Math.max(40, colW(6) - 8)));
+    };
+    const rowH = (r) => rowH0(r) + (wrapLines(r) - 1) * 17;
     let tw = 0; for (let c = a.c1; c <= a.c2; c++) tw += colW(c);
-    let th = 0; for (let r = a.r1; r <= a.r2; r++) th += rowH(r);
+    let th = 0; for (let r = a.r1; r <= a.r2; r++) th += rowH0(r);   // ความสูงตามแบบฟอร์ม (ไม่รวมบรรทัดที่เพิ่มจากการขึ้นบรรทัดใหม่)
     let zoom = pr.scale && !pr.fitPage ? pr.scale / 100 : 1;
     if (tw * zoom > availW) zoom = availW / tw;
     if (pr.fitPage && pr.fh === 1 && th * zoom > availH) zoom = Math.min(zoom, availH / th);

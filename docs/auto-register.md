@@ -9,7 +9,7 @@
 
 ## ขั้นตอนติดตั้ง (ครั้งเดียว)
 
-1. **ฐานข้อมูล** — Supabase → SQL Editor → วางไฟล์ `sql/orders.sql` → Run
+1. **ฐานข้อมูล** — Supabase → SQL Editor → วางไฟล์ `sql/schema.sql` → Run (ตารางและฟังก์ชันคำสั่งซื้อรวมอยู่ในไฟล์เดียวกันแล้ว ไม่มี orders.sql แยก)
 2. **บริการตรวจสลิป** — สมัครที่ https://easyslip.com → สร้าง API key (ดูราคา/โควตาฟรีบนเว็บผู้ให้บริการ)
 3. **Edge Function** — Supabase → Edge Functions → *Deploy a new function* → *Via Editor*
    - ชื่อฟังก์ชัน: `auto-register` (ต้องตรงตัวนี้)
@@ -55,7 +55,7 @@ API v2 (`https://api.easyslip.com/v2/verify/bank`) ตรวจจาก **ข�
 2. Supabase → Edge Functions → Secrets:
    - `EASYSLIP_VERSION` = `v2`
    - `EASYSLIP_API_KEY` = API key ที่ใช้กับ v2 ได้ (ถ้าบัญชี EasySlip ออก key แยกสำหรับ v2 ให้ใส่ key ใหม่)
-3. รัน `sql/orders.sql` อีกครั้ง (เพิ่มการแสดงข้อมูลผลตรวจในหน้าต่าง "ดูสลิป" ของ admin)
+3. รัน `sql/schema.sql` อีกครั้ง (เพิ่มการแสดงข้อมูลผลตรวจในหน้าต่าง "ดูสลิป" ของ admin)
 4. (แนะนำ) **ลงทะเบียนบัญชีรับเงินในหน้า EasySlip** (เมนูบัญชีธนาคาร / Bank Accounts → เพิ่ม กรุงไทย 960-0-44146-4 แล้วผูกกับ Branch ที่ใช้ API key)
    ระบบส่ง `matchAccount: true` ให้ EasySlip จับคู่ผู้รับกับบัญชีนี้ → ได้เลขบัญชีเต็มกลับมา ตรวจผู้รับได้แม่นที่สุด
    (ถ้าไม่ลงทะเบียน ระบบยังทำงานได้ โดยตรวจชื่อผู้รับ + ธนาคารแทน)

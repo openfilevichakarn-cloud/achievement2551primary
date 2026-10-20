@@ -8,6 +8,14 @@ import json, re, sys
 
 def patch(sheets, styles=None):
     if styles is not None and 622 < len(styles): styles[622]['n'] = 'd\\ mmm\\ yyyy'   # วันที่ชั่งน้ำหนัก/วัดส่วนสูงในเล่ม ปพ.6 แบบย่อให้พอดีช่อง
+    if styles is not None and 'ผู้ปกครอง' in sheets:   # ที่อยู่ปัจจุบัน (คอลัมน์ F) ล้นช่องให้ขึ้นบรรทัดใหม่
+        cache = {}
+        for r in range(3, 48):
+            v = sheets['ผู้ปกครอง']['cells'].get(f'F{r}')
+            if v and 's' in v:
+                if v['s'] not in cache:
+                    n = json.loads(json.dumps(styles[v['s']])); n['a'][2] = 1; n['a'][1] = 'center'; styles.append(n); cache[v['s']] = len(styles) - 1
+                v['s'] = cache[v['s']]
     c = sheets['ข้อมูลเพิ่มเติม']['cells']
     for k, v in c.items():
         if isinstance(v.get('v'), str) and v['v'].startswith('กรอกที่แผ่นงานข้อมูลเพิ่มเติม'): v.pop('v')
