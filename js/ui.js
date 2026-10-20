@@ -174,9 +174,9 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
-      case 'print-doc': if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
+      case 'print-doc': if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
       case 'cyc': cycle(b); break;
@@ -1237,10 +1237,12 @@
   // ---------------------------------------------------------------- เอกสาร (ชีทแบบ Excel)
   function vDocs() {
     const groups = A().sheetGroups();
-    for (const g of groups) if (g.items.some(x => /^(คุณลักษณะ|ค่านิยม|กิจกรรม) /.test(x))) g.items = [...Object.keys(ASSESS_DOCS).filter(k => k !== 'ประเมิน:body'), ...g.items.filter(x => !/^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^น้ำหนัก-ส่วนสูง$/.test(x)), 'ประเมิน:body'];
+    for (const g of groups) if (g.items.some(x => /^(คุณลักษณะ|ค่านิยม|กิจกรรม) /.test(x))) g.items = [...Object.keys(ASSESS_DOCS).filter(k => k !== 'ประเมิน:body'), ...g.items.filter(x => !/^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^น้ำหนัก-ส่วนสูง$|^เวลาเรียน$/.test(x)), 'ประเมิน:body'];
+    const gi = groups.findIndex(g => g.items.includes('ประเมิน:body'));
+    groups.splice(gi + 1, 0, { title: 'เวลาเรียนประจำชั้น', items: [ATT] }, { title: 'เวลาเรียนรายวิชา', items: subjects().map(s => 'เวลาเรียนวิชา:' + s.slot) });
     return `<div class="bar"><input class="in" data-search placeholder="ค้นหาเอกสาร เช่น ปพ.6, คะแนน, วิชาที่ 3" value="${esc(U.docq)}" style="max-width:420px"></div>
       <p class="hint">เปิดชีทแบบ Excel เพื่อดู แก้ไขช่องที่กรอกได้ หรือพิมพ์ — ข้อมูลเดียวกับที่กรอกในเมนูอื่น</p>
-      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : ''; return `<div class="ditem" data-q="${esc((nm + ' ' + sn).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(ASSESS_DOCS[nm] ? ASSESS_DOCS[nm] + (nm === 'ประเมิน:body' ? '' : ' (เทอม 1 · เทอม 2 · รวม)') : nm)}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
+      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : '', ma = /^เวลาเรียนวิชา:(\d+)$/.exec(nm); return `<div class="ditem" data-q="${esc((nm + ' ' + sn + (ma ? ' ' + subjName(+ma[1]) : '')).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(ma ? subjName(+ma[1]) + ' (รายเดือน + สรุปเทอม)' : nm === ATT ? 'เวลาเรียนประจำชั้น (รายเดือน + สรุปเทอม)' : ASSESS_DOCS[nm] ? ASSESS_DOCS[nm] + (nm === 'ประเมิน:body' ? '' : ' (เทอม 1 · เทอม 2 · รวม)') : nm)}${ma && !weekPeriods(+ma[1]) ? ' <span class="hint">ยังไม่ได้ตั้งตารางสอน</span>' : ''}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
   }
   function docFilter() {
     const q = U.docq.trim().toLowerCase();
