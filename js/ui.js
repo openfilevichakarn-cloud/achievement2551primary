@@ -251,6 +251,7 @@
       const v = parseCell('date', x.value);
       if (x.value.trim() && typeof v !== 'number') { A().toast('กรอกวันที่เป็น วว/ดด/ปปปป (พ.ศ.)', 'warn'); return; }
       for (const b of BOOKS) setv(b, BOOK_DATE.r, BOOK_DATE.c, v);
+      for (const [sh, ref, val] of A().issueTargets(v)) if (WB().sheet(sh)) { const m = /^([A-Z]+)(\d+)$/.exec(ref); setv(sh, +m[2], C(m[1]), val); }   // ปก ปพ.5 และ ปพ.6 ใช้วันที่เดียวกัน
       x.value = rawOf(v, 'date'); return;
     }
     let val = t === 'num' ? parseCell('num', x.value) : (String(x.value).trim() === '' ? null : String(x.value).trim());
@@ -309,7 +310,7 @@
       ${field('ชั้น (ตามห้องที่เปิดอยู่)', `<input value="${esc(txt(SUBJ, 2, 2))}" disabled>`)}
       ${formInput(SUBJ, 4, 2, 'ปีการศึกษา', { t: 'num', ph: 'เช่น 2566' })}
       ${formInput(SUBJ, 3, 2, 'ภาคเรียนที่ (ใช้ในส่วนหัวเอกสาร)', { t: 'num', ph: '1 หรือ 2' })}
-      ${field('วันที่ออกเอกสาร ปพ.6 (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate" value="${esc(rawOf(bookDate(), 'date'))}" placeholder="เช่น 31/03/2567">`)}
+      ${field('วันที่ออกเอกสาร ปพ.5 / ปพ.6 (วว/ดด/ปปปป พ.ศ.)', `<input data-f="bookdate" value="${esc(rawOf(bookDate(), 'date'))}" placeholder="เช่น 31/03/2567">`)}
       ${formInput(INFO, 4, 2, 'สังกัดระดับกรม')}${formInput(INFO, 8, 2, 'สังกัดระดับจังหวัด / เขตพื้นที่การศึกษา')}
       ${formInput(INFO, 5, 2, 'ตำบล / แขวง')}${formInput(INFO, 6, 2, 'อำเภอ / เขต')}${formInput(INFO, 7, 2, 'จังหวัด')}
     </div></div>
