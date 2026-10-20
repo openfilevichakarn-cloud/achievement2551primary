@@ -174,9 +174,9 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
-      case 'print-doc': A().printSheets([b.dataset.name]); break;
+      case 'print-doc': if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
       case 'cyc': cycle(b); break;
@@ -657,6 +657,7 @@
 
   function customPages(name) {
     const ms = /^วิชาที่ (\d+)$/.exec(name); if (ms) return subjDocPages(+ms[1]);
+    if (ASSESS_DOCS[name]) return assessDocPages(name);
     if (name === ATT) return attPages('all');
     if (!hasSched()) return null;
     if (/^ปพ\.6 (เทอม [12]|รวม)$/.test(name)) { const i = Math.max(0, (num(name, 8, 11) || 1) - 1); return [...A().pagesFor(name), studentAttPage(i, termOfName(name))]; }
@@ -1114,6 +1115,68 @@
     return `<p class="hint">${edit ? 'แตะช่องเพื่อสลับ ว่าง → ผ่าน → ไม่ผ่าน → ว่าง' : 'ทั้งปีคำนวณจากเทอม 1 และ 2 · ผ่านเมื่อผ่านทั้งสองภาคเรียน · ดูอย่างเดียว'}</p>${tools}<div class="tw"><table class="t sheet"><thead><tr><th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th><th>${esc(txt(sh, 2, 3) || 'แนะแนว')}</th><th>${esc(txt(sh, 2, 5) || 'ลูกเสือ-เนตรนารี')}</th><th>ชื่อชุมนุม</th><th>${esc(txt(sh, 2, 7) || 'ชุมนุม')}</th><th>${esc((txt(sh, 2, 10) || 'กิจกรรมเพื่อสังคมฯ').replace(/\n/g, ' '))}</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
+  // ---------------------------------------------------------------- เอกสาร: คุณลักษณะ · ค่านิยม · กิจกรรม · น้ำหนัก-ส่วนสูง (ครูประจำชั้นเซ็น)
+  // doc ชื่อเสมือน 'ประเมิน:trait|value|act|body' → 3 หน้า เทอม 1 · เทอม 2 · รวม (น้ำหนัก-ส่วนสูงหน้าเดียว)
+  const ASSESS_DOCS = { 'ประเมิน:trait': 'คุณลักษณะอันพึงประสงค์', 'ประเมิน:value': 'ค่านิยม · สมรรถนะ', 'ประเมิน:act': 'กิจกรรมพัฒนาผู้เรียน', 'ประเมิน:body': 'น้ำหนัก-ส่วนสูง' };
+  const homeSign = () => `<div style="${PF}display:flex;justify-content:space-around;margin-top:16px;font-size:16px;text-align:center">${sign('ครูประจำชั้น', realName(13))}</div>`;
+  const PG = { zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+  const tdN = (x, o) => `<td style="${SB}padding:0 4px;white-space:nowrap;text-align:left;${o || ''}">${x}</td>`;
+  const thS = (x, o) => `<th style="${SB}font-weight:400;${o || ''}">${x}</th>`;
+  function levelOf(sh, r, cols, labels) { for (let k = 0; k < cols.length; k++) if (txt(sh, r, cols[k]).trim() === '/') return k; return -1; }
+  function assessPage(kind, term) {
+    const n = nStudents(), sh = AS[kind].base + ' ' + (term === 'sum' ? 'รวม' : term), cfg = itemCfg(kind), L = root.PPAssess.layout(kind, cfg.n);
+    const labels = AS[kind].lv, short = ['0', '1', '2', '3'];
+    let h1 = `<tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล', 'width:190px')}`, h2 = '';
+    for (let g = 0; g < 2; g++) h1 += `<th colspan="${cfg.n[g] + 1}" style="${SB}">${esc(cfg.g[g])}</th>`;
+    h1 += '</tr><tr><th style="' + SB + '"></th><th style="' + SB + '"></th>';
+    for (let g = 0; g < 2; g++) { h2 += L.items[g].map((c, i) => thS(esc(txt(sh, 3, c) || String(i + 1)), 'font-size:12px;min-width:20px;padding:0 1px')).join('') + thS('ผลการ<br>ประเมิน', 'font-size:12px;padding:0 3px'); }
+    let rows = ''; const cnt = [[0, 0, 0, 0], [0, 0, 0, 0]];
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = 5 + i; rows += `<tr style="height:19px">${pcell(i + 1)}${tdN(esc(stuName(i)))}`;
+      for (let g = 0; g < 2; g++) {
+        rows += L.items[g].map(c => { const v = get(sh, r, c); return pcell(typeof v === 'number' ? v : (v ? esc(String(v)) : ''), 'font-size:13px'); }).join('');
+        const lv = levelOf(sh, r, L.res[g]); if (lv >= 0 && n) cnt[g][lv]++;
+        rows += pcell(lv >= 0 ? labels[g][lv] : '', 'font-size:12px;font-weight:700;white-space:nowrap');
+      }
+      rows += '</tr>';
+    }
+    const sum = [0, 1].map(g => `<td style="${SB}padding:2px 6px;vertical-align:top"><b>${esc(cfg.g[g])}</b><br>${labels[g].map((l, k) => `${l} ${cnt[g][k]} คน`).join(' · ')}</td>`).join('');
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปการประเมิน' + AS[kind].title + ' ' + (term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term))}
+      <table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h1}${h2}</tr>${rows}</table>
+      <div style="margin:6px 0 4px;font-size:14px">เกณฑ์: 3 = ${labels[0][3]} · 2 = ${labels[0][2]} · 1 = ${labels[0][1]} · 0 = ${labels[0][0]}${kind === 'value' ? ` (สมรรถนะ: 3 = ${labels[1][3]} · 2 = ${labels[1][2]} · 1 = ${labels[1][1]} · 0 = ${labels[1][0]})` : ''}</div>
+      <table style="border-collapse:collapse;font-size:14px;width:100%"><tr>${sum}</tr></table>${homeSign()}</div>`;
+    return { ...PG, html };
+  }
+  function actPage(term) {
+    const n = nStudents(), sh = 'กิจกรรม ' + (term === 'sum' ? 'รวม' : term);
+    const heads = [txt(sh, 2, 3) || 'แนะแนว', txt(sh, 2, 5) || 'ลูกเสือ-เนตรนารี', 'ชื่อชุมนุม', txt(sh, 2, 7) || 'ชุมนุม', (txt(sh, 2, 10) || 'กิจกรรมเพื่อสังคมและสาธารณประโยชน์').replace(/\n/g, '')];
+    const cnt = [0, 1, 2, 3].map(() => [0, 0]); let rows = '';
+    const res = (s) => s === 'pass' ? 'ผ่าน' : s === 'fail' ? '<b>ไม่ผ่าน</b>' : '';
+    for (let i = 0; i < Math.max(n, 1); i++) {
+      const r = 5 + i, st = ACT.map(pr => actState(sh, r, pr));
+      st.forEach((s, k) => { if (n && s === 'pass') cnt[k][0]++; else if (n && s === 'fail') cnt[k][1]++; });
+      rows += `<tr style="height:19px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell(res(st[0]))}${pcell(res(st[1]))}${pcell(esc(txt(sh, r, 7)))}${pcell(res(st[2]))}${pcell(res(st[3]))}</tr>`;
+    }
+    const names = ['แนะแนว', 'ลูกเสือ-เนตรนารี', 'ชุมนุม', 'กิจกรรมเพื่อสังคมฯ'];
+    const html = `<div style="${PF}font-size:15px">${attHead('สรุปการประเมินกิจกรรมพัฒนาผู้เรียน ' + (term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term))}
+      <table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล', 'width:190px')}${heads.map(x => thS(esc(x))).join('')}</tr>${rows}</table>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;margin-top:8px"><tr>${names.map((x, k) => `<td style="${SB}padding:2px 6px"><b>${x}</b><br>ผ่าน ${cnt[k][0]} · ไม่ผ่าน ${cnt[k][1]}</td>`).join('')}</tr></table>${term === 'sum' ? '<div style="margin-top:4px;font-size:14px">ผ่านทั้งปี = ผ่านทั้ง 2 ภาคเรียน</div>' : ''}${homeSign()}</div>`;
+    return { ...PG, html };
+  }
+  function bodyPage() {
+    const n = nStudents(), BS = 'น้ำหนัก-ส่วนสูง';
+    const dts = [3, 5, 7, 9].map((c, k) => `<th colspan="2" style="${SB}font-weight:400">ครั้งที่ ${k + 1}<br><small>${esc(rawOf(get(BS, 6, c), 'date') || '-')}</small></th>`).join('');
+    let rows = '';
+    for (let i = 0; i < Math.max(n, 1); i++) rows += `<tr style="height:19px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${[3, 4, 5, 6, 7, 8, 9, 10].map(c => pcell(sv(get(BS, 7 + i, c)))).join('')}</tr>`;
+    const html = `<div style="${PF}font-size:15px">${attHead('บันทึกน้ำหนัก-ส่วนสูงของนักเรียน')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล', 'width:190px')}${dts}</tr><tr><th style="${SB}"></th><th style="${SB}"></th>${thS('น้ำหนัก<br><small>(กก.)</small>').repeat(4).replace(/<\/th><th/g, '</th><th')}</tr>${rows}</table>${homeSign()}</div>`;
+    return { ...PG, html };
+  }
+  function assessDocPages(name) {
+    const k = name.slice(name.indexOf(':') + 1);
+    if (k === 'body') return [bodyPage()];
+    return [1, 2, 'sum'].map(t => k === 'act' ? actPage(t) : assessPage(k, t));
+  }
+
   // ---------------------------------------------------------------- รายงาน ปพ.5 (สรุปผลรายห้อง)
   const GRADES = [4, 3.5, 3, 2.5, 2, 1.5, 1, 0];
   const TCOL = { 1: { pct: 'DC', grade: 'DD', tot: 'DB' }, 2: { pct: 'EG', grade: 'EH', tot: 'EF' }, sum: { pct: 'ER', grade: 'ES', tot: 'EQ' } };
@@ -1174,9 +1237,10 @@
   // ---------------------------------------------------------------- เอกสาร (ชีทแบบ Excel)
   function vDocs() {
     const groups = A().sheetGroups();
+    for (const g of groups) if (g.items.some(x => /^(คุณลักษณะ|ค่านิยม|กิจกรรม) /.test(x))) g.items = [...Object.keys(ASSESS_DOCS).filter(k => k !== 'ประเมิน:body'), ...g.items.filter(x => !/^(คุณลักษณะ|ค่านิยม|กิจกรรม) |^น้ำหนัก-ส่วนสูง$/.test(x)), 'ประเมิน:body'];
     return `<div class="bar"><input class="in" data-search placeholder="ค้นหาเอกสาร เช่น ปพ.6, คะแนน, วิชาที่ 3" value="${esc(U.docq)}" style="max-width:420px"></div>
       <p class="hint">เปิดชีทแบบ Excel เพื่อดู แก้ไขช่องที่กรอกได้ หรือพิมพ์ — ข้อมูลเดียวกับที่กรอกในเมนูอื่น</p>
-      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : ''; return `<div class="ditem" data-q="${esc((nm + ' ' + sn).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(nm)}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
+      ${groups.map(g => `<div class="card doc-g"><h3>${esc(g.title)}</h3><div class="dlist">${g.items.map(nm => { const m = /^วิชาที่ (\d+)$/.exec(nm), sn = m ? A().subjName(+m[1]) : ''; return `<div class="ditem" data-q="${esc((nm + ' ' + sn).toLowerCase())}"><button class="open" data-act="doc" data-name="${esc(nm)}">${esc(ASSESS_DOCS[nm] ? ASSESS_DOCS[nm] + (nm === 'ประเมิน:body' ? '' : ' (เทอม 1 · เทอม 2 · รวม)') : nm)}${sn ? ` <span class="hint">${esc(sn)}</span>` : ''}</button><button class="btn" data-act="print-doc" data-name="${esc(nm)}">พิมพ์</button></div>`; }).join('')}</div></div>`).join('')}`;
   }
   function docFilter() {
     const q = U.docq.trim().toLowerCase();
