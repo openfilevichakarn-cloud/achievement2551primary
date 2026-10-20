@@ -24,7 +24,8 @@ def patch(sheets):
         if re.match(r'ปก ปพ\.5 รายชั้น ', name):
             for c in list(range(25, 30)) + list(range(58, 63)):   # ช่องละ 12/13px รวม 63px ให้สัดส่วนตรงกับปกรายวิชา
                 d['cw'][str(c)] = {**d['cw'].get(str(c), {}), 'w': 1.08 if c in (25, 26, 27, 58, 59, 60) else 1.0}
-            if '52' in d['rh']: d['rh']['52'] = {**d['rh']['52'], 'h': 25.9}
+            if '52' in d['rh']: d['rh']['52'] = {**d['rh']['52'], 'h': 47.25}   # สูง 63px = กว้างช่อง → สี่เหลี่ยมจัตุรัส
+        elif re.match(r'ปก ปพ\.5 รายวิชา ', name) and '36' in d['rh']: d['rh']['36'] = {**d['rh']['36'], 'h': 45.0}   # กว้างช่อง 60px
     for name, d in sheets.items():
         for v in d['cells'].values():
             f = v.get('f')
