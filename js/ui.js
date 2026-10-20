@@ -792,7 +792,7 @@
       rows += [T.btw, T.exam, T.total, T.pct].map(c => pcell(sv(get(sh, r, c)))).join('') + pcell(sv(get(sh, r, T.grade)), 'font-weight:700;') + '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${subjHead(slot, 'บันทึกผลการเรียนรายวิชา ' + subjName(slot), 'ภาคเรียนที่ ' + term + ' ·')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}</table>${subjFoot(slot)}</div>`;
-    return { html, zoom: 1, land: nw > 6, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+    return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   function scoreYearPage(slot) {
     const sh = 'วิชาที่ ' + slot, n = nStudents();
@@ -808,7 +808,7 @@
         + [a(C('EI'), C('EM')), a(C('EJ'), C('EN')), g(C('EQ')), g(C('ER'))].map(v => pcell(sv(v))).join('') + pcell(sv(g(C('ES'))), 'font-weight:700;') + '</tr>';
     }
     const html = `<div style="${PF}font-size:15px">${subjHead(slot, 'สรุปผลการเรียนรายวิชา ' + subjName(slot) + ' รวมทั้งปี', '')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}</table>${subjFoot(slot)}</div>`;
-    return { html, zoom: 1, land: true, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
+    return { html, zoom: 1, land: false, m: [0.5, 0.5, 0.5, 0.5], fit: true, fitW: true };
   }
   const subjDocPages = (slot) => [scoreTermPage(slot, 1), scoreTermPage(slot, 2), scoreYearPage(slot)];
 
@@ -1334,11 +1334,11 @@
     const n = nStudents(); let m = 0, f = 0, rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) {
       const sex = txt(ST, 3 + i, 7).trim(); if (n) { if (sex === 'ช') m++; else if (sex === 'ญ') f++; }
-      rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell('')}</tr>`;
+      rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${pcell(esc(rawOf(get(ST, 3 + i, 13), 'date')))}${pcell('')}</tr>`;
     }
     const html = `<div style="${PF}font-size:16px">${attHead('รายชื่อนักเรียน')}
       <div style="display:flex;justify-content:space-between;margin:0 2px 4px;font-size:15px"><span>ครูประจำชั้น ${esc(realName(13) || '-')}</span><span>จำนวนนักเรียน <b>${n}</b> คน${m + f ? ` (ชาย ${m} · หญิง ${f})` : ''}</span></div>
-      <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('หมายเหตุ', 'width:130px')}</tr>${rows}</table>${homeSign()}</div>`;
+      <table style="border-collapse:collapse;font-size:15px;width:100%;text-align:center"><tr>${thS('เลขที่', 'width:46px')}${thS('ชื่อ - สกุล')}${thS('วัน/เดือน/ปีเกิด', 'width:120px')}${thS('หมายเหตุ', 'width:110px')}</tr>${rows}</table>${homeSign()}</div>`;
     return { ...PG, html };
   }
   // ---- สรุปผลรายชั้น (ไม่ใช้สี) อ่านค่าจากชีท คะแนนรายชั้น / คะแนนร้อยละ / เกรดรายชั้น / เกรดร้อยละ ซึ่งคำนวณไว้แล้ว
@@ -1358,7 +1358,7 @@
     let foot = '';
     if (hasFoot) for (const [r, lab] of [[51, 'รวม'], [52, 'เฉลี่ย'], [53, 'เฉลี่ย %']]) foot += `<tr style="height:19px;font-weight:700"><td style="${SB}"></td>${tdN(lab)}${cs.map(c => pcell(sv(get(sh, r, c)))).join('')}${pcell('')}${pcell('')}${pcell('')}</tr>`;
     const html = `<div style="${PF}font-size:15px">${attHead('ผลการพัฒนาคุณภาพผู้เรียน · ' + title + ' ' + tl)}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows}${foot}</table>${homeSign()}</div>`;
-    return { ...PG, land: cs.length > 7, html };
+    return { ...PG, land: false, html };
   }
   function sumDistPage(term) {
     const sh = 'เกรดร้อยละ ' + (term === 'sum' ? 'รวม' : term), GR = ['มส', 'ร', '0', '1', '1.5', '2', '2.5', '3', '3.5', '4'];
@@ -1369,7 +1369,7 @@
       rows += `<tr style="height:21px">${tdN(esc(name))}${[2, 3, 4].map(c => pcell(sv(get(sh, r, c)))).join('')}${Array.from({ length: 20 }, (_, k) => { const v = get(sh, r, 5 + k); return pcell(k % 2 && typeof v === 'number' ? (Math.round(v * 100) / 100).toFixed(2) : sv(v), 'font-size:13px'); }).join('')}</tr>`;
     }
     const html = `<div style="${PF}font-size:15px">${attHead('สรุปผลการประเมินผลสัมฤทธิ์ทางการเรียน ' + (term === 'sum' ? 'รวมทั้งปี' : 'ภาคเรียนที่ ' + term))}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center">${h}${rows || `<tr><td colspan="25" style="${SB}padding:8px">ยังไม่มีรายวิชา</td></tr>`}</table>${homeSign()}</div>`;
-    return { ...PG, land: true, html };
+    return { ...PG, land: false, html };
   }
   function parentPage(kind) {
     const n = nStudents(), sh = kind === 'family' ? 'บิดามารดา' : 'ผู้ปกครอง';
@@ -1377,7 +1377,7 @@
     let rows = '';
     for (let i = 0; i < Math.max(n, 1); i++) rows += `<tr style="height:21px">${pcell(i + 1)}${tdN(esc(stuName(i)))}${[3, 4, 5, 6].map(c => tdN(esc(sv(get(sh, 3 + i, c)) || '-'), 'white-space:normal')).join('')}</tr>`;
     const html = `<div style="${PF}font-size:15px">${attHead(kind === 'family' ? 'ข้อมูลบิดา-มารดาของนักเรียน' : 'ข้อมูลผู้ปกครองของนักเรียน')}<table style="border-collapse:collapse;font-size:14px;width:100%;text-align:center"><tr>${thS('ที่', 'width:26px')}${thS('ชื่อ - สกุล นักเรียน', 'width:170px')}${heads.map(x => thS(x)).join('')}</tr>${rows}</table>${homeSign()}</div>`;
-    return { ...PG, land: true, html };
+    return { ...PG, land: false, html };
   }
   function assessDocPages(name) {
     if (name === 'บิดามารดา') return [parentPage('family')];
