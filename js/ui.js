@@ -183,6 +183,8 @@
       case 'logo-del': A().removeLogo(); break;
       case 'dmc': $('#dmc-file').click(); break;
       case 'stdfill': stdFill(k); break;
+      case 'stdnorm': stdNormalize(); break;
+      case 'stdsort': stdSort(); break;
       case 'cyc': cycle(b); break;
       case 'aedit': set({ aedit: !U.aedit }); break;
       case 'aadd': itemAdd(+b.dataset.g); break;
@@ -356,7 +358,7 @@
       <div class="card soft"><b>รายชื่อนักเรียน ${n} คน</b> (สูงสุด ${MAX_STU} คน)
         <p class="hint" style="margin:.3rem 0 0">หัวข้อเรียงตามไฟล์ DMC · กรอกเอง หรือกด “นำเข้าไฟล์ DMC” · วางข้อมูลหลายช่องจาก Excel ได้ (Ctrl+V) · ข้อมูลทั้งหมดนี้ใช้ในเล่ม ปพ.6</p>
         <div class="row" style="margin-top:8px"><button class="btn primary" data-act="dmc">นำเข้าไฟล์ DMC (.xlsx)</button><button class="btn sm" data-act="stupre">${showPre ? '－ ซ่อนคำนำหน้า' : '＋ เพิ่มคำนำหน้า'}</button>
-          <button class="btn sm" data-act="stdfill" data-k="def">ตั้ง เชื้อชาติ/สัญชาติ = ไทย ศาสนา = พุทธ ให้ที่ว่าง</button><button class="btn sm" data-act="stdfill" data-k="addr">เติมตำบล/อำเภอ/จังหวัด/ไปรษณีย์ จากคนที่ 1</button></div></div>
+          <button class="btn sm" data-act="stdnorm" title="ล้างช่องว่างเกิน แปลงคำนำหน้าย่อ (ด.ช. ด.ญ. น.ส.) แยกคำนำหน้า/นามสกุลที่ติดกัน แปลงวันเกิดและเลขบัตร ฯลฯ">ปรับข้อมูล (หลังวาง)</button><button class="btn sm" data-act="stdsort">เรียงลำดับ (ชายก่อน · เลขประจำตัว)</button><button class="btn sm" data-act="stdfill" data-k="def">ตั้ง เชื้อชาติ/สัญชาติ = ไทย ศาสนา = พุทธ ให้ที่ว่าง</button><button class="btn sm" data-act="stdfill" data-k="addr">เติมตำบล/อำเภอ/จังหวัด/ไปรษณีย์ จากคนที่ 1</button></div></div>
       <div class="tw"><table class="t sheet prof"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${body}</tbody></table></div>
       ${rows < MAX_STU ? '<p><button class="btn" data-act="addrows" data-key="stuRows">＋ เพิ่ม 5 แถว</button></p>' : ''}`
       .replace(/(<input class="gc"[^>]*data-c="8")/g, '$1 list="prefixes"');
@@ -371,6 +373,61 @@
     }
     refresh();
   }
+  // ---- ปรับข้อมูล (กรณีคัดลอกมาวาง) และเรียงลำดับ
+  const STU_ALL = () => [...new Set([...Object.values(root.PPDmc.COL), 25, 52, 4, 5])];
+  const PRE_MAP = [[/^(ด\.?\s*ช\.?|เด็กชาย|master)$/i, 'เด็กชาย'], [/^(ด\.?\s*ญ\.?|เด็กหญิง)$/i, 'เด็กหญิง'], [/^(น\.?\s*ส\.?|นางสาว|miss)$/i, 'นางสาว'], [/^(นาย|mr\.?)$/i, 'นาย'], [/^(นาง|mrs\.?)$/i, 'นาง']];
+  const normPrefix = (s) => { for (const [re, v] of PRE_MAP) if (re.test(s)) return v; return s; };
+  const PRE_START = /^(เด็กชาย|เด็กหญิง|ด\.ช\.|ด\.ญ\.|ดช\.?|ดญ\.?|นางสาว|น\.ส\.|นส\.|นาย|นาง)\s*/;
+  const stuRowCount = () => { let m = 0; for (let i = 0; i < MAX_STU; i++) if (txt(ST, 3 + i, 8).trim() || txt(ST, 3 + i, 9).trim() || txt(ST, 3 + i, 10).trim()) m = i + 1; return m; };
+  function stdNormalize() {
+    const n = stuRowCount(); if (!n) { A().toast('ยังไม่มีรายชื่อนักเรียน', 'warn'); return; }
+    let changed = 0; A().S.batch = true;
+    const put = (r, c, v) => { const old = get(ST, r, c); const o = old === null ? '' : String(old), nv = v === null ? '' : String(v); if (o !== nv) { setv(ST, r, c, v); changed++; } };
+    try {
+      for (let i = 0; i < n; i++) {
+        const r = 3 + i, cur = {};
+        for (const c of STU_ALL()) { const v = get(ST, r, c); cur[c] = v === null || (v && v.isRange) ? '' : (typeof v === 'number' && c !== 13 ? String(v) : v); }
+        const text = (c) => String(cur[c] === undefined ? '' : cur[c]).replace(/[ ​‌‍﻿]/g, ' ').replace(/\s+/g, ' ').trim();
+        for (const c of STU_ALL()) {
+          if (c === 13 || c === 3 || c === 5) continue;
+          const raw = cur[c]; let s = typeof raw === 'number' ? String(raw) : text(c); if (s === '-' && c !== 7) s = '';
+          put(r, c, s === '' ? null : s);
+        }
+        // คำนำหน้า: รูปแบบย่อ → เต็ม · แยกคำนำหน้า/นามสกุลที่ติดมาในช่องชื่อ
+        let pre = normPrefix(text(8)), first = text(9), last = text(10);
+        if (!pre) { const m = PRE_START.exec(first); if (m && first.length > m[0].length) { pre = normPrefix(m[1]); first = first.slice(m[0].length); } }
+        if (!last && /\s/.test(first)) { const k = first.indexOf(' '); last = first.slice(k + 1).trim(); first = first.slice(0, k); }
+        put(r, 8, pre || null); put(r, 9, first || null); put(r, 10, last || null);
+        for (const c of [27, 33, 40]) put(r, c, normPrefix(text(c)) || null);
+        // เลขประจำตัวประชาชน: เหลือเฉพาะตัวเลข
+        const pid = String(get(ST, r, 3) === null ? '' : get(ST, r, 3)).replace(/\D/g, ''); put(r, 3, pid || null);
+        // วันเกิด: ข้อความ → วันที่ (ปี ค.ศ./พ.ศ. ได้)
+        const b = get(ST, r, 13); if (typeof b === 'string' && b.trim()) { const d = A().parseInput(ST, 13, b.trim()); if (typeof d === 'number') put(r, 13, d); }
+        // เพศ
+        const sx = parseCell('sex', text(7)); put(r, 7, sx); if (!sx) deriveSex(r);
+      }
+    } finally { A().S.batch = false; A().markDirty(); }
+    refresh(); A().toast(changed ? 'ปรับข้อมูลแล้ว ' + changed + ' ช่อง' : 'ข้อมูลอยู่ในรูปแบบที่ถูกต้องแล้ว', 'ok');
+  }
+  // เรียง: เพศชายก่อนเพศหญิง แต่ละกลุ่มเรียงเลขประจำตัวนักเรียนจากน้อยไปมาก
+  const sexRank = (s) => (s === 'ช' ? 0 : s === 'ญ' ? 1 : 2);
+  const codeKey = (s) => { s = String(s === null || s === undefined ? '' : s).trim(); const m = /^\d+$/.test(s); return m ? [0, +s] : s ? [1, s] : [2, 0]; };
+  function sortStudentList(list, sexOf, codeOf) {
+    return list.map((x, i) => ({ x, i, s: sexRank(sexOf(x)), k: codeKey(codeOf(x)) })).sort((a, b) => a.s - b.s || a.k[0] - b.k[0] || (a.k[0] === 1 ? String(a.k[1]).localeCompare(String(b.k[1]), 'th', { numeric: true }) : a.k[1] - b.k[1]) || a.i - b.i).map(o => o.x);
+  }
+  async function stdSort() {
+    const n = stuRowCount(); if (n < 2) return;
+    const yes = await A().modal('เรียงลำดับนักเรียน', '<p>เรียงใหม่: <b>เพศชายก่อน</b> แล้วตามด้วยเพศหญิง แต่ละกลุ่มเรียงตาม <b>เลขประจำตัวนักเรียน</b> จากน้อยไปมาก</p><p class="hint">⚠ เลขที่ของนักเรียนจะเปลี่ยน และคะแนน/การประเมิน/เวลาเรียนที่กรอกไว้แล้วผูกกับเลขที่เดิม ควรเรียงก่อนเริ่มกรอกคะแนน</p>', [{ label: 'ยกเลิก', value: false }, { label: 'เรียงลำดับ', value: true, primary: true }]);
+    if (!yes) return;
+    const cols = STU_ALL(), com = [27, 28, 29, 30, 31];
+    const list = Array.from({ length: n }, (_, i) => ({ r: get(ST, 3 + i, 7), c: get(ST, 3 + i, 6), v: Object.fromEntries(cols.map(c => [c, get(ST, 3 + i, c)])), k: Object.fromEntries(com.map(c => [c, get(ROSTER, 2 + i, c)])) }));
+    const sorted = sortStudentList(list, o => o.r, o => o.c);
+    A().S.batch = true;
+    try {
+      sorted.forEach((o, i) => { for (const c of cols) { const v = o.v[c] === undefined ? null : o.v[c]; if ((get(ST, 3 + i, c) ?? null) !== v) setv(ST, 3 + i, c, v); } for (const c of com) { const v = o.k[c] === undefined ? null : o.k[c]; if ((get(ROSTER, 2 + i, c) ?? null) !== v) setv(ROSTER, 2 + i, c, v); } });
+    } finally { A().S.batch = false; A().markDirty(); }
+    refresh(); A().toast('เรียงลำดับแล้ว ' + n + ' คน', 'ok');
+  }
   // นำเข้าไฟล์ DMC (.xlsx) — แทนที่รายชื่อนักเรียนของห้องนี้
   async function importDmc(file) {
     if (!file) return;
@@ -384,7 +441,7 @@
     const had = nStudents();
     const ok = await A().modal('นำเข้าไฟล์ DMC', `<p>เลือกชั้น/ห้องในไฟล์ที่จะนำเข้ามายัง <b>${esc(A().roomLabel(S.grade, S.room))}</b></p>
       <label class="fld"><span>ชั้น/ห้องในไฟล์</span><select id="dmc-class">${opts}</select></label>
-      <p class="hint">${had ? `⚠ รายชื่อเดิม ${had} คนในห้องนี้จะถูกแทนที่ (คะแนนที่กรอกไว้ผูกกับเลขที่ จะตรงกับรายชื่อใหม่ตามลำดับ)` : 'นำเข้าเป็นรายชื่อใหม่ของห้องนี้'}</p>`,
+      <p class="hint">${had ? `⚠ รายชื่อเดิม ${had} คนในห้องนี้จะถูกแทนที่ (คะแนนที่กรอกไว้ผูกกับเลขที่ จะตรงกับรายชื่อใหม่ตามลำดับ)` : 'นำเข้าเป็นรายชื่อใหม่ของห้องนี้'}</p><p class="hint">จัดเรียงให้อัตโนมัติ: เพศชายก่อน แล้วตามด้วยเพศหญิง แต่ละกลุ่มเรียงตามเลขประจำตัวนักเรียนจากน้อยไปมาก</p>`,
       [{ label: 'ยกเลิก', value: false }, { label: 'นำเข้า', value: true, primary: true }].map(b => b));
     // modal ลบ DOM เมื่อกดปุ่ม — อ่านตัวเลือกที่เลือกไว้ล่าสุดจากเหตุการณ์ change
     if (!ok) return;
@@ -396,7 +453,7 @@
       for (let i = 0; i < Math.max(old, cls.rows.length); i++) for (const c of cols) if (get(ST, 3 + i, c) !== null && get(ST, 3 + i, c) !== '') setv(ST, 3 + i, c, null);
       for (let i = 0; i < Math.max(old, cls.rows.length); i++) for (const c of [27, 28, 29, 30, 31]) if (get(ROSTER, 2 + i, c) !== null && get(ROSTER, 2 + i, c) !== '') setv(ROSTER, 2 + i, c, null);
       const C_ = root.PPDmc.COL;
-      cls.rows.slice(0, MAX_STU).forEach((o, i) => {
+      sortStudentList(cls.rows, o => o.sex || (/^(เด็กชาย|นาย)/.test(o.prefix) ? 'ช' : /^(เด็กหญิง|นางสาว|นาง)/.test(o.prefix) ? 'ญ' : ''), o => o.code).slice(0, MAX_STU).forEach((o, i) => {
         const r = 3 + i;
         for (const [k, c] of Object.entries(C_)) {
           let v = o[k]; if (v === undefined || v === '') continue;
