@@ -556,7 +556,7 @@
     const sh = S.wb.sheet(name), d = sh.def, pr = d.print || {};
     const land = pr.orient === 'landscape';
     const W = (land ? 297 : 210) * PX, H = (land ? 210 : 297) * PX;
-    const m = pr.m && pr.m.length === 4 ? pr.m : [0.7, 0.7, 0.75, 0.75];
+    const m = (pr.m && pr.m.length === 4 ? pr.m : [0.7, 0.7, 0.75, 0.75]).map(v => Math.max(v, 0.5));   // ขอบกระดาษอย่างน้อย 0.5 นิ้ว ไม่ให้เนื้อหาชิดขอบ
     const availW = W - (m[0] + m[1]) * 96, availH = H - (m[2] + m[3]) * 96;
     const a = pr.area ? R.parseRange(pr.area) : { r1: 1, c1: 1, r2: usedRows(name), c2: R.parseRange(viewArea(name)).c2 };
     const colHid = (c) => !!(d.cw[c] && d.cw[c].h);
@@ -570,6 +570,7 @@
     if (pr.fitPage && pr.fh === 1 && th * zoom > availH) zoom = Math.min(zoom, availH / th);
     zoom = Math.max(0.1, zoom * 0.985);
     const brk = new Set(pr.breaks || []), pages = [];
+    if (!brk.size && th * zoom > availH && th * zoom <= availH * 1.15) zoom = availH / th * 0.985;   // เกินหน้าเล็กน้อย: ย่อให้พอดี 1 หน้า
     let start = a.r1, acc = 0;
     for (let r = a.r1; r <= a.r2; r++) {
       const h = rowH(r) * zoom;
@@ -580,6 +581,10 @@
     if (start <= a.r2) pages.push([start, a.r2]);
     return pages.map(([r1, r2]) => {
       const out = sheetHtmlFor(name, false, P.numToCol(a.c1) + r1 + ':' + P.numToCol(a.c2) + r2);
+      // ขยายความสูงแถวให้เต็มหน้า A4 (หน้าที่เนื้อหาสั้นกว่าหน้ากระดาษ) — ตัวอักษรขนาดเดิม แถวห่างขึ้นตามแบบฟอร์มต้นฉบับ
+      let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
+      const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
+      if (k > 1.02) out.html = out.html.replace(/(<tr data-r="\d+" style="height:)([\d.]+)px/g, (mm, x, y) => x + (parseFloat(y) * k).toFixed(1) + 'px');
       return { html: out.html, zoom, land, m, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
