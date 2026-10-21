@@ -44,7 +44,9 @@ body{overscroll-behavior-y:none}
 .fld input,.fld select,.fld textarea,.in{width:100%;min-height:44px;padding:.5rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:16px;line-height:1.35}
 .fld textarea{resize:vertical}
 .fld input:focus,.fld select:focus,.fld textarea:focus,.in:focus{outline:2px solid var(--brand);outline-offset:0;background:var(--panel)}
-.fld input:disabled{opacity:.75}
+.fld input:not(:disabled),.fld select:not(:disabled){background:#fff;color:#111}
+.fld input:focus{background:#fff}
+.fld input:disabled{opacity:1;background:#cbd5e1;color:#334155;border-color:#94a3b8;cursor:not-allowed}
 .in.bad,.fld input.bad{border-color:var(--err);outline-color:var(--err)}
 .hint{color:var(--muted);font-size:.86rem}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
