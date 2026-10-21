@@ -609,8 +609,9 @@
       let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
-      if (k > 1.02) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
-      return { html: out.html, zoom, land, m, fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
+      if (/^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
+      if (k > 1.02 && !/^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
+      return { html: out.html, zoom, land, m, fitW: /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
   function printAllStudents(name) {
@@ -652,14 +653,13 @@
       const z = sec.firstElementChild, cs = getComputedStyle(sec);
       const aw = sec.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = sec.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
       z.style.zoom = 1; z.style.width = 'max-content'; z.style.margin = '0 auto';
-      const r = z.getBoundingClientRect(), k = Math.max(0.3, Math.min(1, aw / r.width, ah / r.height) * 0.99);
-      z.style.zoom = k; z.style.setProperty('--bw', (1 / k) + 'px');
+      const r = z.getBoundingClientRect(), rw = Math.max(r.width, z.scrollWidth), rh = Math.max(r.height, z.scrollHeight), k = Math.max(0.3, Math.min(1, aw / rw, ah / rh) * 0.99);
+      z.style.width = rw + 'px'; z.style.zoom = k; z.style.setProperty('--bw', (1 / k) + 'px');
     });
   }
 
   // ---------------------------------------------------------------- เริ่มต้น
   function boot() {
-    try { document.fonts.load("16px 'TH Sarabun New'"); document.fonts.load("bold 16px 'TH Sarabun New'"); } catch (e) {}
     try { document.fonts.load("16px 'TH Sarabun New'"); document.fonts.load("bold 16px 'TH Sarabun New'"); } catch (e) {}
     if (CFG.WATERMARK) document.body.insertAdjacentHTML('beforeend', wmLayer(80));
     if (CFG.SAMPLE_DIR) {   // เว็บตัวอย่าง: ปุ่มคืนค่าข้อมูลตัวอย่าง
