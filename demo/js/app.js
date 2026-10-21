@@ -659,6 +659,8 @@
 
   // ---------------------------------------------------------------- เริ่มต้น
   function boot() {
+    try { document.fonts.load("16px 'TH Sarabun New'"); document.fonts.load("bold 16px 'TH Sarabun New'"); } catch (e) {}
+    try { document.fonts.load("16px 'TH Sarabun New'"); document.fonts.load("bold 16px 'TH Sarabun New'"); } catch (e) {}
     if (CFG.WATERMARK) document.body.insertAdjacentHTML('beforeend', wmLayer(80));
     if (CFG.SAMPLE_DIR) {   // เว็บตัวอย่าง: ปุ่มคืนค่าข้อมูลตัวอย่าง
       $('#save-now').insertAdjacentHTML('beforebegin', '<button id="sample-reset" class="btn" title="ล้างการแก้ไขทั้งหมด กลับเป็นข้อมูลตัวอย่างเดิม">คืนค่าตัวอย่าง</button>');

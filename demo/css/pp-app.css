@@ -1,5 +1,5 @@
-@font-face{font-family:'TH Sarabun New';font-style:normal;font-weight:400;font-display:swap;src:local('TH Sarabun New'),local('THSarabunNew'),url(../fonts/thsarabunnew-400.woff) format('woff')}
-@font-face{font-family:'TH Sarabun New';font-style:normal;font-weight:700;font-display:swap;src:local('TH Sarabun New Bold'),local('THSarabunNew-Bold'),local('THSarabunNew Bold'),url(../fonts/thsarabunnew-700.woff) format('woff')}
+@font-face{font-family:'TH Sarabun New';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/thsarabunnew-400.woff) format('woff')}
+@font-face{font-family:'TH Sarabun New';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/thsarabunnew-700.woff) format('woff')}
 @font-face{font-family:'Sarabun';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/sarabun-thai-400-normal.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200B-200D,U+25CC}
 @font-face{font-family:'Sarabun';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/sarabun-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Sarabun';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/sarabun-thai-700-normal.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200B-200D,U+25CC}
@@ -192,3 +192,8 @@ input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
 
 /* หน้าพิมพ์/ตัวอย่างก่อนพิมพ์: ไม่ใส่สีพื้น (ขาว-ดำ) ตามแบบฟอร์มที่ใช้พิมพ์จริง */
 .pp-page table.xl td,.pp-page table.xl th{background:transparent!important;color:#000!important}
+
+/* หน้าพิมพ์ทุกหน้า: TH Sarabun New (ไฟล์แนบกับเว็บ ไม่ใช้ฟอนต์ในเครื่อง) ขนาดไม่ต่ำกว่า 16pt (21.33px) */
+.pp-page{--minfs:21.33px;font-family:'TH Sarabun New',sans-serif;font-size:21.33px}
+.pp-page [style*="font-size:21px"],.pp-page [style*="font-size:8px"],.pp-page [style*="font-size:9px"],.pp-page [style*="font-size:10px"],.pp-page [style*="font-size:11px"],.pp-page [style*="font-size:12px"],.pp-page [style*="font-size:13px"],.pp-page [style*="font-size:14px"],.pp-page [style*="font-size:15px"],.pp-page [style*="font-size:16px"],.pp-page [style*="font-size:17px"],.pp-page [style*="font-size:18px"],.pp-page [style*="font-size:19px"],.pp-page [style*="font-size:20px"]{font-size:21.33px!important}
+.pp-page small{font-size:inherit}
