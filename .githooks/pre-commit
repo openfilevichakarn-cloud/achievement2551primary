@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# สร้าง demo/ ใหม่ก่อน commit ทุกครั้ง เพื่อให้หน้า demo ตรงกับหน้าหลักเสมอ
+cd "$(git rev-parse --show-toplevel)" && python3 tools/build_demo.py >/dev/null && git add demo

@@ -3,6 +3,8 @@
 #   Cloudflare Pages > Build command: bash tools/cf_build.sh · Build output directory: dist
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# demo/ คัดลอกโปรแกรมล่าสุดเสมอ เพื่อให้ pages.dev กับหน้า demo ตรงกัน
+python3 tools/build_demo.py >/dev/null
 rm -rf dist && mkdir dist
 for f in *.html; do cp "$f" dist/; done
 for d in css js fonts img data demo; do [ -d "$d" ] && cp -r "$d" dist/; done
