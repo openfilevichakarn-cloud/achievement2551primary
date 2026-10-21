@@ -617,9 +617,9 @@
       let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
-      if (/^(ปพ\.6 |บิดามารดา|ผู้ปกครอง)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
+      if (/^(บิดามารดา)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
       if (k > 1.02 && !one && !guard) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
-      return { html: out.html, zoom, land, m, fitW: one || guard, nomin: name === 'บิดามารดา', fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
+      return { html: out.html, zoom, land, m, fitW: one || guard, nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
   function printAllStudents(name) {
