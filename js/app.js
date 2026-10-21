@@ -602,6 +602,8 @@
       if (brk.has(r) && r < a.r2) { pages.push([start, r]); start = r + 1; acc = 0; }
     }
     if (start <= a.r2) pages.push([start, a.r2]);
+    const one = /^(บิดามารดา|ผู้ปกครอง)$/.test(name) || /^ปพ\.6 /.test(name);   // ต้องพอดี A4 หน้าเดียว: รวมเป็นหน้าเดียวแล้วย่อตามจริงตอนแสดงผล
+    if (one && pages.length > 1) pages.splice(0, pages.length, [a.r1, a.r2]);
     return pages.map(([r1, r2]) => {
       const out = sheetHtmlFor(name, false, P.numToCol(a.c1) + r1 + ':' + P.numToCol(a.c2) + r2);
       // ขยายความสูงแถวให้เต็มหน้า A4 (หน้าที่เนื้อหาสั้นกว่าหน้ากระดาษ) — ตัวอักษรขนาดเดิม แถวห่างขึ้นตามแบบฟอร์มต้นฉบับ
@@ -609,9 +611,9 @@
       let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
-      if (/^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
-      if (k > 1.02 && !/^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
-      return { html: out.html, zoom, land, m, fitW: /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
+      if (/^(ปพ\.6 |บิดามารดา|ผู้ปกครอง)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
+      if (k > 1.02 && !one) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
+      return { html: out.html, zoom, land, m, fitW: one, nomin: /^(บิดามารดา|ผู้ปกครอง)$/.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
   function printAllStudents(name) {
@@ -629,7 +631,7 @@
   function showPreview(blocks) {
     if (!blocks.length) return;
     const root = $('#print-root');
-    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
+    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.nomin ? ';--minfs:0px' : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
     if (!bar) {
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);

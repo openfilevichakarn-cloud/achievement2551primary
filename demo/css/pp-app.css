@@ -199,4 +199,4 @@ input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
 .pp-page small{font-size:inherit}
 /* ข้อความในช่องตารางหน้าพิมพ์: อยู่กึ่งกลางแนวตั้ง (TH Sarabun เส้นฐานสูง จึงเว้นบนเพิ่มเล็กน้อย) */
 .pp-page table.xl td,.pp-page table.xl th{vertical-align:middle!important;padding-top:.2em!important;padding-bottom:0!important}
-.pp-page table:not(.xl) td,.pp-page table:not(.xl) th{vertical-align:middle;padding-top:.15em;padding-bottom:0}
+.pp-page table:not(.xl) td,.pp-page table:not(.xl) th{vertical-align:middle!important;padding-top:.15em!important;padding-bottom:0!important}
