@@ -197,3 +197,6 @@ input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
 .pp-page{--minfs:21.33px;font-family:'TH Sarabun New',sans-serif;font-size:21.33px}
 .pp-page [style*="font-size:21px"],.pp-page [style*="font-size:8px"],.pp-page [style*="font-size:9px"],.pp-page [style*="font-size:10px"],.pp-page [style*="font-size:11px"],.pp-page [style*="font-size:12px"],.pp-page [style*="font-size:13px"],.pp-page [style*="font-size:14px"],.pp-page [style*="font-size:15px"],.pp-page [style*="font-size:16px"],.pp-page [style*="font-size:17px"],.pp-page [style*="font-size:18px"],.pp-page [style*="font-size:19px"],.pp-page [style*="font-size:20px"]{font-size:21.33px!important}
 .pp-page small{font-size:inherit}
+/* ข้อความในช่องตารางหน้าพิมพ์: อยู่กึ่งกลางแนวตั้ง (TH Sarabun เส้นฐานสูง จึงเว้นบนเพิ่มเล็กน้อย) */
+.pp-page table.xl td,.pp-page table.xl th{vertical-align:middle!important;padding-top:.2em!important;padding-bottom:0!important}
+.pp-page table:not(.xl) td,.pp-page table:not(.xl) th{vertical-align:middle;padding-top:.15em;padding-bottom:0}
