@@ -5,6 +5,9 @@
 import json, sys
 
 def patch(sheets):
+    # ตำแหน่งผู้อำนวยการ (ใช้ในช่องลายเซ็น ปพ.6 / ปก ปพ.5): ตั้งค่าเริ่มต้น ไม่ปล่อยเป็นข้อความ "กรอก…" ที่ถูกซ่อนตอนพิมพ์ ทำให้ตำแหน่งหาย
+    b10 = sheets.get('ข้อมูลพื้นฐาน', {}).get('cells', {}).get('B10')
+    if b10 and str(b10.get('v', '')).startswith('กรอก'): b10['v'] = 'ผู้อำนวยการโรงเรียน'
     for name, d in sheets.items():
         if not name.startswith('ปพ.6 '): continue
         cw = d['cw']
