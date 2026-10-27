@@ -639,7 +639,7 @@
       if (/^ปพ\.6 /.test(name)) out.html = p6Hide(out.html);
       if (/^(บิดามารดา)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
       if (k > 1.02 && !one && !guard) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
-      return { html: out.html, zoom, land, m, fitW: one || guard, nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
+      return { html: out.html, zoom, land, m, fitW: one || guard, cls: /^ปพ\.6 /.test(name) ? 'p6' : '', nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
   function printAllStudents(name) {
@@ -663,7 +663,7 @@
     opts = opts || {};
     if (showPreview._off) showPreview._off();
     const root = $('#print-root');
-    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.nomin ? ';--minfs:0px' : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
+    root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom${b.cls ? ' ' + b.cls : ''}" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.nomin ? ';--minfs:0px' : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
     if (!bar) {
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);

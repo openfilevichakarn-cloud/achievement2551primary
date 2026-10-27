@@ -200,3 +200,5 @@ input.gc.mv{color:#b45309;font-weight:600;background:#fff7ed}
 /* ข้อความในช่องตารางหน้าพิมพ์: อยู่กึ่งกลางแนวตั้ง (TH Sarabun เส้นฐานสูง จึงเว้นบนเพิ่มเล็กน้อย) */
 .pp-page table.xl td,.pp-page table.xl th{vertical-align:middle!important;padding-top:.2em!important;padding-bottom:0!important}
 .pp-page table:not(.xl) td,.pp-page table:not(.xl) th{vertical-align:middle!important;padding-top:.15em!important;padding-bottom:0!important}
+/* ปพ.6: หัวตารางหลายบรรทัด ระยะบรรทัดไม่ให้วรรณยุกต์/สระซ้อนกัน */
+.pp-zoom.p6 table.xl td{line-height:1.45!important}
