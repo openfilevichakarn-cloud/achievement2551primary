@@ -186,9 +186,9 @@
       case 'aterm': set({ aterm: isNaN(+k) ? k : +k }); break;
       case 'p6term': set({ p6term: isNaN(+k) ? k : +k }); break;
       case 'subj-step': { const list = subjects(); const i = list.findIndex(s => s.slot === U.subj); const n = list[i + (+k)]; if (n) set({ subj: n.slot }); break; }
-      case 'doc': { if (FORM_DOC.test(b.dataset.name)) { const nm = b.dataset.name, rb = () => formDocPages(nm); A().showPreview(rb(), /^ปพ\.6 /.test(nm) ? { rebuild: rb } : {}); break; } if (b.dataset.name === 'บิดามารดา' || b.dataset.name === 'ผู้ปกครอง') { A().showPreview(A().pagesFor(b.dataset.name)); break; } if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
+      case 'doc': { if (FORM_DOC.test(b.dataset.name)) { const nm = b.dataset.name; if (/^ปพ\.6 /.test(nm)) { p6Preview(nm, 'one'); break; } A().showPreview(formDocPages(nm)); break; } if (b.dataset.name === 'บิดามารดา' || b.dataset.name === 'ผู้ปกครอง') { A().showPreview(A().pagesFor(b.dataset.name)); break; } if (b.dataset.name === 'ชื่อนักเรียน') { A().showPreview([rosterPage()]); break; } const mv = /^เวลาเรียนวิชา:(\d+)$/.exec(b.dataset.name); if (mv) { A().showPreview(sPages(+mv[1], 'all')); break; } if (b.dataset.name === ATT && calTotal()) { A().showPreview(attPages('all')); break; } if (ASSESS_DOCS[b.dataset.name]) { A().showPreview(assessDocPages(b.dataset.name)); break; } const ms = /^วิชาที่ (\d+)$/.exec(b.dataset.name); if (ms && nStudents()) A().showPreview(subjDocPages(+ms[1])); else A().openSheet(b.dataset.name); break; }
       case 'docx': A().openSheet(b.dataset.name); break;
-      case 'print-doc': if (FORM_DOC.test(b.dataset.name)) { const nm = b.dataset.name, rb = () => formDocPages(nm); A().showPreview(rb(), /^ปพ\.6 /.test(nm) ? { rebuild: rb } : {}); } else if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
+      case 'print-doc': if (FORM_DOC.test(b.dataset.name)) { const nm = b.dataset.name; if (/^ปพ\.6 /.test(nm)) p6Preview(nm, 'one'); else A().showPreview(formDocPages(nm)); } else if (b.dataset.name === 'ชื่อนักเรียน') A().showPreview([rosterPage()]); else if (/^เวลาเรียนวิชา:(\d+)$/.test(b.dataset.name)) A().showPreview(sPages(+b.dataset.name.split(':')[1], 'all')); else if (ASSESS_DOCS[b.dataset.name]) A().showPreview(assessDocPages(b.dataset.name)); else A().printSheets([b.dataset.name]); break;
       case 'logo': A().pickLogo(); break;
       case 'logo-del': A().removeLogo(); break;
       case 'dmc': $('#dmc-file').click(); break;
@@ -235,7 +235,7 @@
       case 'p6hide': A().toggleHide(k); refresh(); break;
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
-      case 'p6all': A().printAllStudents(p6Sheet()); break;
+      case 'p6all': p6Preview(p6Sheet(), 'all'); break;
       case 'p6book': { const b = 'เล่ม ปพ.6 รวม'; WB().setValue(b, 'CX4', U.p6no); A().showPreview(formDocPages(b)); break; }
       case 'p6bookall': A().printAllStudents('เล่ม ปพ.6 รวม'); break;
       case 'backup': A().exportBackup(); break;
@@ -1455,7 +1455,14 @@
   // ---------------------------------------------------------------- รายงาน ปพ.6 (รายบุคคล)
   const p6Sheet = () => 'ปพ.6 ' + (U.p6term === 'sum' ? 'รวม' : 'เทอม ' + U.p6term);
   const NO = { r: 8, c: 11 };
-  function printStudent() { selectStudent(); A().printSheets([p6Sheet()]); }
+  // หน้าตัวอย่าง ปพ.6: mode 'one' = นักเรียนคนที่เลือก · 'all' = ทั้งห้อง (auto = เปิดหน้าต่างพิมพ์ต่อทันที)
+  function p6Preview(name, mode, auto) {
+    const n = nStudents(); if (!n) { A().toast('ยังไม่มีรายชื่อนักเรียน กรอกที่ ข้อมูล › นักเรียน ก่อน', 'warn'); return; }
+    if (U.p6no > n || U.p6no < 1) U.p6no = 1;
+    const rb = () => mode === 'all' ? A().allStudentBlocks(name) : formDocPages(name);
+    A().showPreview(rb(), { rebuild: rb, auto, p6: { mode, no: U.p6no, names: Array.from({ length: n }, (_, i) => stuName(i)), go: (no) => { U.p6no = no; p6Preview(name, 'one'); }, print: (m) => p6Preview(name, m, true) } });
+  }
+  function printStudent() { selectStudent(); p6Preview(p6Sheet(), 'one'); }
   function selectStudent() { WB().setValue(p6Sheet(), L(NO.c) + NO.r, U.p6no); }
   function vReport6() {
     const n = nStudents();

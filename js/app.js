@@ -642,15 +642,16 @@
       return { html: out.html, zoom, land, m, fitW: one || guard, cls: /^ปพ\.6 /.test(name) ? 'p6' : '', nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
     });
   }
+  // หน้าพิมพ์ของนักเรียนทุกคน (ใส่เลขที่ลงช่องเลือกนักเรียนของชีทแล้วคืนค่าเดิม)
+  function allStudentBlocks(name) {
+    const list = roster(), pos = NO_CELL(name), blocks = [], keep = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
+    try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...docPages(name)); } }
+    finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, keep); }
+    return blocks;
+  }
   function printAllStudents(name) {
-    const list = roster(); if (!list.length) { toast('ยังไม่มีรายชื่อนักเรียน', 'warn'); return; }
-    const pos = NO_CELL(name), prev = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
-    const rb = () => {
-      const blocks = [], keep = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
-      try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...docPages(name)); } }
-      finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, keep); }
-      return blocks;
-    };
+    if (!roster().length) { toast('ยังไม่มีรายชื่อนักเรียน', 'warn'); return; }
+    const rb = () => allStudentBlocks(name);
     showPreview(rb(), isP6(name) ? { rebuild: rb } : {});
   }
   // หน้าพิมพ์ของชีท: ชีทที่มีหน้าเสริม (เช่น เวลาเรียนรายวิชาต่อท้าย ปพ.5/ปพ.6) ให้ ui.js ประกอบให้
@@ -677,6 +678,16 @@
     if (opts.rebuild) {   // ปพ.6: ปุ่มแสดง/ซ่อน ชื่อชุมนุม และ ค่านิยม 12 ประการ
       const mk = (h) => { const b = document.createElement('button'); b.className = 'btn pv-p6'; b.textContent = (S[h[0]] ? 'แสดง' : 'ซ่อน') + h[2]; b.onclick = () => { toggleHide(h[0]); showPreview(opts.rebuild(), { ...opts, _y: y }); }; return b; };
       $('.pv-act', bar).before(...P6_HIDE.map(mk));
+      if (opts.p6) {   // ปพ.6: เลือกนักเรียน + พิมพ์ทีละคน / พิมพ์ทั้งหมด
+        const c = opts.p6, one = c.mode === 'one', n = c.names.length;
+        const sel = document.createElement('select'); sel.className = 'pv-p6'; sel.disabled = !one; sel.setAttribute('aria-label', 'เลือกนักเรียน');
+        sel.innerHTML = c.names.map((nm, i) => `<option value="${i + 1}"${i + 1 === c.no ? ' selected' : ''}>${i + 1}. ${esc(nm)}</option>`).join('');
+        sel.onchange = () => c.go(+sel.value);
+        const st = (txt, d) => { const b = document.createElement('button'); b.className = 'btn pv-p6'; b.textContent = txt; b.disabled = !one || c.no + d < 1 || c.no + d > n; b.onclick = () => c.go(c.no + d); return b; };
+        const bt = (txt, m, primary) => { const b = document.createElement('button'); b.className = 'btn pv-p6' + (primary ? ' primary' : ''); b.textContent = txt; b.setAttribute('aria-pressed', c.mode === m); b.onclick = () => c.print(m); return b; };
+        const grp = document.createElement('span'); grp.className = 'pv-p6'; grp.style.cssText = 'display:inline-flex;gap:6px;align-items:center'; grp.append(st('‹', -1), sel, st('›', 1));
+        $('.pv-act', bar).before(grp, bt('พิมพ์ทีละคน', 'one'), bt('พิมพ์ทั้งหมด', 'all'));
+      }
     }
     $('#pv-n').textContent = blocks.length + ' หน้า';
     $('#pv-close').onclick = close;
@@ -696,6 +707,7 @@
       const r = z.getBoundingClientRect(), rw = Math.max(r.width, z.scrollWidth), rh = Math.max(r.height, z.scrollHeight), k = Math.max(0.3, Math.min(1, aw / rw, ah / rh) * 0.99);
       z.style.width = rw + 'px'; z.style.zoom = k; z.style.setProperty('--bw', (1 / k) + 'px');
     });
+    if (opts.auto) setTimeout(() => { const b = $('#pv-print'); if (b && document.body.classList.contains('previewing')) b.click(); }, 350);   // พิมพ์ทีละคน/ทั้งหมด: เปิดหน้าต่างพิมพ์ต่อทันที
   }
 
   // ---------------------------------------------------------------- เริ่มต้น
@@ -727,6 +739,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    P6_HIDE, toggleHide, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
+    P6_HIDE, toggleHide, allStudentBlocks, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
   };
 })();
