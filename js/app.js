@@ -16,6 +16,7 @@
 
   const INFO = 'ข้อมูลพื้นฐาน', SUBJ = 'รายวิชา', ROSTER = 'ข้อมูลเพิ่มเติม';
   const S = {
+    hideValue: LS.get('pp_hidevalue') === '1',   // ซ่อนผลการประเมินค่านิยมหลัก 12 ประการ ใน ปพ.6
     hideClub: LS.get('pp_hideclub') === '1',   // ซ่อนชื่อชุมนุมในหน้าแสดงผล/พิมพ์ ปพ.6
     code: null, school: null, grade: 1, room: 1, rooms: {}, template: null, wb: null, styles: null,
     view: { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() },
@@ -619,6 +620,10 @@
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
       if (S.hideClub && /^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<td class="s\d+" data-r="37" data-c="3">)[^<]*(<\/td>)/, '$1$2');
+      if (S.hideValue && /^ปพ\.6 /.test(name)) out.html = out.html   // แถว 41: ซ่อนข้อความและเส้นกรอบเฉพาะช่องค่านิยม (ช่องลายเซ็นฝั่งขวาคงไว้)
+        .replace(/(<td class="s\d+" data-r="41" data-c="1" colspan="3" style=")[^"]*(">)[^<]*(<\/td>)/, '$1border:none;border-left:var(--bw,1px) solid #000$2$3')
+        .replace(/(<td class="s\d+" data-r="41" data-c="4")>[^<]*(<\/td>)/, '$1 style="border:none">$2')
+        .replace(/(<td class="s\d+" data-r="40" data-c="4")>/, '$1 style="border-bottom:var(--bw,1px) solid #000">');
       if (/^(บิดามารดา)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
       if (k > 1.02 && !one && !guard) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
       return { html: out.html, zoom, land, m, fitW: one || guard, nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
@@ -697,6 +702,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    setHideClub(v) { S.hideClub = !!v; LS.set('pp_hideclub', v ? '1' : '0'); }, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
+    setHideValue(v) { S.hideValue = !!v; LS.set('pp_hidevalue', v ? '1' : '0'); }, setHideClub(v) { S.hideClub = !!v; LS.set('pp_hideclub', v ? '1' : '0'); }, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
   };
 })();
