@@ -49,6 +49,7 @@
     const v = $('#view');
     $('#modal').addEventListener('change', (e) => { if (e.target.id === 'dmc-class') window.__dmcPick = e.target.value; });
     $('#dmc-file').onchange = (e) => { importDmc(e.target.files[0]); e.target.value = ''; };
+    v.addEventListener('toggle', (e) => { if (e.target.dataset && e.target.dataset.cfg) U.cfgOpen = e.target.open; }, true);
     v.oninput = onInput; v.onchange = onChange; v.onclick = onClick; v.onkeydown = onKey; v.onpaste = onPaste;
     go('home');
   }
@@ -126,7 +127,16 @@
     const inp = e.target.closest('input.gc'); if (inp) { commitInput(inp); updateRo($('#view')); return; }
     const x = e.target.closest('[data-f]'); if (x) fieldChange(x);
   }
-  function onInput(e) { const s = e.target.closest('input[data-search]'); if (s) { U.docq = s.value; docFilter(); } }
+  function onInput(e) {
+    const s = e.target.closest('input[data-search]'); if (s) { U.docq = s.value; docFilter(); return; }
+    // ตั้งค่าตัวชี้วัด: ชื่อ/คะแนนเต็ม/สัดส่วน อัปเดตหัวตารางขณะพิมพ์ (ข้ามค่าว่าง/0 เพราะจะทำให้จำนวนตัวชี้วัดเปลี่ยนและวาดใหม่กลางการพิมพ์)
+    const x = e.target.closest('input[data-f^="วิชาที่ "]');
+    if (x && /\|(3\|(105|107)|5|6)\|/.test(x.dataset.f) && x.closest('details[data-cfg]')) {
+      const isNum = x.dataset.f.endsWith('|num'); if (isNum && !(/^\d+(\.\d+)?$/.test(x.value) && +x.value > 0)) return;
+      if (!isNum && !x.value.trim()) return;
+      fieldChange(x);
+    }
+  }
   const gridAt = (tbl, gr, gc) => $(`input.gc[data-gr="${gr}"][data-gc="${gc}"]`, tbl);
   function gridMove(el, dr, dc) {
     const tbl = el.closest('table'); let gr = +el.dataset.gr, gc = +el.dataset.gc;
@@ -235,6 +245,17 @@
       case 'toc': { const d = $('#man-' + k); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } break; }
     }
   }
+  // แก้ชื่อ/คะแนนเต็มตัวชี้วัดหรือสัดส่วนในแผงตั้งค่า: อัปเดตหัวตารางทันที (จำนวนตัวชี้วัดเปลี่ยนจึงวาดใหม่) ไม่ต้องกดปุ่มเพิ่ม/ลด
+  function liveScoreCfg(r, c) {
+    const k = scCfg(); if (!k) return; const { sh, T } = k, v = $('#view');
+    const isWork = (r === SC_NAME || r === SC_MAX) && c >= T.work[0] && c <= T.work[1];
+    const isRatio = r === 3 && (c === C('DA') || c === C('DC'));
+    if (!isWork && !isRatio) return;
+    if ($$('th[data-wj]', v).length !== k.nw) { refresh(); return; }
+    $$('th[data-wj]', v).forEach(th => { const j = +th.dataset.wj; th.innerHTML = `${esc(txt(sh, SC_NAME, T.work[0] + j) || 'ตัวชี้วัด')}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small>`; });
+    const ex = $('th[data-exam]', v); if (ex) ex.innerHTML = `สอบ<br><small>(${esc(txt(sh, 3, 'DC'))})</small>`;
+    const hint = $('#sc-ratio', v); if (hint) { const ra = [num(sh, 3, 'DA'), num(sh, 3, 'DC')]; hint.textContent = `ระหว่างเรียน : ปลายภาค = ${fmt2(ra[0])} : ${fmt2(ra[1])} (รวม ${fmt2((ra[0] || 0) + (ra[1] || 0))} คะแนน) คะแนนตัวชี้วัดทุกตัวจะถูกปรับให้เต็มตามสัดส่วนระหว่างเรียนอัตโนมัติ`; }
+  }
   function fieldChange(x) {
     const [sh, r, c, t] = x.dataset.f.split('|');
     if (x.dataset.f === 'subj') { U.subj = +x.value; refresh(); return; }
@@ -261,6 +282,7 @@
     if (t === 'num' && typeof val === 'string') { A().toast('กรุณากรอกเป็นตัวเลข', 'warn'); return; }
     setv(sh, +r, +c, val);
     if (t === 'date' && val !== null) x.value = rawOf(get(sh, +r, +c), 'date');
+    if (/^วิชาที่ \d+$/.test(sh) && U.tab === 'scores' && U.term !== 'sum') liveScoreCfg(+r, +c);
     updateRo($('#view'));
   }
   const bindF = (sh, r, c, t) => `data-f="${esc(sh)}|${r}|${typeof c === 'string' ? C(c) : c}|${t || 'text'}"`;
@@ -1157,18 +1179,18 @@
     const k = scCfg(), { sh, T } = k, ratio = [num(sh, 3, 'DA'), num(sh, 3, 'DC')];
     const indIn = Array.from({ length: k.nw }, (_, j) => `<div class="indset"><b>ตัวชี้วัดที่ ${j + 1}</b>${field('ชื่อ', `<input ${bindF(sh, SC_NAME, T.work[0] + j)} value="${esc(txt(sh, SC_NAME, T.work[0] + j))}">`)}${field('คะแนนเต็ม', `<input inputmode="numeric" ${bindF(sh, SC_MAX, T.work[0] + j, 'num')} value="${esc(txt(sh, SC_MAX, T.work[0] + j))}">`)}</div>`).join('');
     const none = !k.nw;
-    const cfg = `<details class="card soft more" ${none ? 'open' : ''}><summary><b>ตั้งค่าตัวชี้วัดและคะแนนเต็ม</b> <span class="hint">รายการตัวชี้วัดแยกตามภาคเรียน · สัดส่วนคะแนนใช้ร่วมกันทั้ง 2 ภาคเรียนของวิชานี้</span></summary>
+    const cfg = `<details class="card soft more" data-cfg="1" ${none || U.cfgOpen ? 'open' : ''}><summary><b>ตั้งค่าตัวชี้วัดและคะแนนเต็ม</b> <span class="hint">รายการตัวชี้วัดแยกตามภาคเรียน · สัดส่วนคะแนนใช้ร่วมกันทั้ง 2 ภาคเรียนของวิชานี้</span></summary>
       <div class="maxbox" style="margin-top:8px">
         <label class="fld"><span>สัดส่วน ระหว่างเรียน</span><input inputmode="numeric" ${bindF(sh, 3, 'DA', 'num')} value="${esc(txt(sh, 3, 'DA'))}"></label>
         <label class="fld"><span>สัดส่วน ปลายภาค (= คะแนนสอบเต็ม)</span><input inputmode="numeric" ${bindF(sh, 3, 'DC', 'num')} value="${esc(txt(sh, 3, 'DC'))}"></label>
       </div>
-      <p class="hint">ระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])} (รวม ${fmt2((ratio[0] || 0) + (ratio[1] || 0))} คะแนน) คะแนนตัวชี้วัดทุกตัวจะถูกปรับให้เต็มตามสัดส่วนระหว่างเรียนอัตโนมัติ</p>
+      <p class="hint" id="sc-ratio">ระหว่างเรียน : ปลายภาค = ${fmt2(ratio[0])} : ${fmt2(ratio[1])} (รวม ${fmt2((ratio[0] || 0) + (ratio[1] || 0))} คะแนน) คะแนนตัวชี้วัดทุกตัวจะถูกปรับให้เต็มตามสัดส่วนระหว่างเรียนอัตโนมัติ</p>
       <h4 style="margin:.6rem 0 .3rem">ตัวชี้วัด / คะแนนระหว่างเรียน เทอม ${U.term}</h4><div class="maxbox">${indIn}</div>
       <div class="row" style="margin:6px 0"><button class="btn sm" data-act="work-add">＋ เพิ่มตัวชี้วัด</button><button class="btn sm" data-act="work-del" ${k.nw ? '' : 'disabled'}>－ ลดตัวชี้วัด</button></div></details>`;
     if (none) return cfg + '<div class="card empty"><b>ยังไม่ได้กำหนดตัวชี้วัด</b>กดปุ่ม “เพิ่มตัวชี้วัด” ด้านบน หรือ<br><br><button class="btn primary" data-act="work-add">เพิ่มตัวชี้วัดแรก</button></div>';
     let th = '<th class="no">ที่</th><th class="stk">ชื่อ - สกุล</th>', body = '';
-    for (let j = 0; j < k.nw; j++) th += `<th>${esc(txt(sh, SC_NAME, T.work[0] + j) || 'ตัวชี้วัด')}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small></th>`;
-    th += `<th>สอบ<br><small>(${esc(txt(sh, 3, 'DC'))})</small></th><th class="ro">ระหว่างเรียน</th><th class="ro">รวม</th><th class="ro">ร้อยละ</th><th class="ro">ระดับ</th>`;
+    for (let j = 0; j < k.nw; j++) th += `<th data-wj="${j}">${esc(txt(sh, SC_NAME, T.work[0] + j) || 'ตัวชี้วัด')}<br><small>(${fmt2(num(sh, SC_MAX, T.work[0] + j))})</small></th>`;
+    th += `<th data-exam="1">สอบ<br><small>(${esc(txt(sh, 3, 'DC'))})</small></th><th class="ro">ระหว่างเรียน</th><th class="ro">รวม</th><th class="ro">ร้อยละ</th><th class="ro">ระดับ</th>`;
     for (let i = 0; i < n; i++) {
       const r = IND_ROW + i; let gc = 0;
       body += `<tr><td class="no">${i + 1}</td><td class="stk">${esc(stuName(i))}</td>`;
