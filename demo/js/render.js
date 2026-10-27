@@ -230,8 +230,10 @@
     const lan = opts.logo && opts.logoAt ? opts.logoAt(sheetName) : null;
     if (lan && !lan.fit && lan.r >= r1 && lan.r <= r2 && lan.c >= c1 && lan.c <= c2) {
       const lim = Math.min(Math.max(lan.limitRow || lan.r + 1, lan.r + 1), r2 + 1);
-      const maxH = Math.max(14, Math.min(76, Y(lim) - Y(lan.r) - 4));
-      over += `<img class="logo ov" alt="ตราโรงเรียน" style="position:absolute;object-fit:contain;pointer-events:none;left:${(X(lan.c) + 3).toFixed(1)}px;top:${(Y(lan.r) + 3).toFixed(1)}px;max-height:${maxH}px;max-width:113px" src="${opts.logo}">`;
+      const maxH = Math.max(14, Math.min(lan.cap || 76, Y(lim) - Y(lan.r) - 4));
+      const pos = lan.up ? `left:${(X(lan.c) + 3).toFixed(1)}px;bottom:${(totalH - Y(lim) + 2).toFixed(1)}px` : `left:${(X(lan.c) + 3).toFixed(1)}px;top:${(Y(lan.r) + 3).toFixed(1)}px`;   // up: ตราตั้งชิดล่างแถวแรก ยื่นขึ้นไปในขอบกระดาษด้านบน (ไม่ทับบรรทัดชื่อโรงเรียน)
+      const maxH2 = lan.up ? lan.cap : maxH;
+      over += `<img class="logo ov" alt="ตราโรงเรียน" style="position:absolute;object-fit:contain;object-position:left bottom;pointer-events:none;${pos};max-height:${maxH2}px;max-width:${lan.maxW || 113}px" src="${opts.logo}">`;
     }
     html = `<div class="xlbox" style="position:relative;width:${totalW}px">${html}${over}</div>`;
     return { html, width: totalW, height: totalH };

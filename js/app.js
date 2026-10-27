@@ -386,7 +386,7 @@
   function logoAnchor(name) {
     if (/^ปก ปพ\.5 /.test(name)) return { r: 2, c: 2, limitRow: 5 };
     if (/^เล่ม ปพ\.6/.test(name)) return { r: 2, c: 1, limitRow: 7 };
-    if (/^ปพ\.6 /.test(name)) return { r: 1, c: 1, limitRow: 2 };
+    if (/^ปพ\.6 /.test(name)) return { r: 1, c: 1, limitRow: 2, cap: 64, maxW: 70, up: true };   // ปพ.6: ใช้พื้นที่ว่างซ้ายหัวเรื่อง (แถว 1-4) ใหญ่ที่สุดโดยไม่ทับตัวอักษร
     return null;
   }
   // ตราเก็บที่เดียวต่อโรงเรียน ใช้กับทุกชั้น ทุกห้อง
