@@ -14,10 +14,14 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } },
   };
 
+  const P6_HIDE = [['hideClub', 'pp_hideclub', 'ชื่อชุมนุม'], ['hideValue', 'pp_hidevalue', 'ค่านิยม 12 ประการ'], ['hideRankS', 'pp_hiderank_s', 'คะแนนรวมได้ลำดับที่'], ['hideRankG', 'pp_hiderank_g', 'ผลการเรียนเฉลี่ยได้ลำดับที่']];
+  const toggleHide = (prop) => { const h = P6_HIDE.find(x => x[0] === prop); if (!h) return; S[prop] = !S[prop]; LS.set(h[1], S[prop] ? '1' : '0'); };
   const INFO = 'ข้อมูลพื้นฐาน', SUBJ = 'รายวิชา', ROSTER = 'ข้อมูลเพิ่มเติม';
   const S = {
-    hideValue: LS.get('pp_hidevalue') === '1',   // ซ่อนผลการประเมินค่านิยมหลัก 12 ประการ ใน ปพ.6
-    hideClub: LS.get('pp_hideclub') === '1',   // ซ่อนชื่อชุมนุมในหน้าแสดงผล/พิมพ์ ปพ.6
+    hideValue: LS.get('pp_hidevalue') === '1',   // ปุ่มแสดง/ซ่อนใน ปพ.6 (ดู P6_HIDE) เก็บในเบราว์เซอร์
+    hideClub: LS.get('pp_hideclub') === '1',
+    hideRankS: LS.get('pp_hiderank_s') === '1',
+    hideRankG: LS.get('pp_hiderank_g') === '1',
     code: null, school: null, grade: 1, room: 1, rooms: {}, template: null, wb: null, styles: null,
     view: { rowHidden: {}, colHidden: null, bg: {}, locked: new Set() },
     userEdits: {}, att: {}, version: 0, dirty: false, saving: false, active: null, zoom: 'fit', saveTimer: null, offline: false,
@@ -569,6 +573,19 @@
   function usedRows(name) { return R.parseRange(viewArea(name)).r2; }
   // แบ่งชีทเป็นหน้ากระดาษ A4: ย่อให้พอดีความกว้าง แล้วตัดหน้าตามเส้นแบ่งหน้าของไฟล์หรือเมื่อเต็มหน้า
   let _mcv = null;
+  // ปพ.6: ซ่อนข้อความและเส้นกรอบของช่องฝั่งซ้ายในแถวนั้น (ช่องลายเซ็นฝั่งขวาคงไว้) แล้วเติมเส้นล่างให้แถวบน
+  function p6Hide(html) {
+    const row = (r) => {
+      html = html.replace(new RegExp('(<td class="s\\d+" data-r="' + r + '" data-c="1" colspan="3" style=")[^"]*(">)[^<]*(</td>)'), '$1border:none;border-left:var(--bw,1px) solid #000$2$3')
+        .replace(new RegExp('(<td class="s\\d+" data-r="' + r + '" data-c="4")>[^<]*(</td>)'), '$1 style="border:none">$2')
+        .replace(new RegExp('(<td class="s\\d+" data-r="' + (r - 1) + '" data-c="4")>'), '$1 style="border-bottom:var(--bw,1px) solid #000">');
+    };
+    if (S.hideValue) row(41);
+    if (S.hideRankS) row(31);
+    if (S.hideRankG) row(33);
+    if (S.hideClub) html = html.replace(/(<td class="s\d+" data-r="37" data-c="3">)[^<]*(<\/td>)/, '$1$2');
+    return html;
+  }
   function pagesFor(name) {
     const sh = S.wb.sheet(name), d = sh.def, pr = d.print || {};
     const land = pr.orient === 'landscape';
@@ -619,11 +636,7 @@
       let hh = 0; for (let r = r1; r <= r2; r++) hh += rowH(r);
       const k = Math.max(1, Math.min(1.7, availH * 0.985 / Math.max(1, hh * zoom)));
       const fixedRow = /^ปก ปพ\.5 รายชั้น/.test(name) ? 52 : /^ปก ปพ\.5 รายวิชา/.test(name) ? 36 : 0;   // แถวช่องสี่เหลี่ยม อนุมัติ/ไม่อนุมัติ: ไม่ยืด ให้ขนาดเท่ากันทุกปก
-      if (S.hideClub && /^ปพ\.6 /.test(name)) out.html = out.html.replace(/(<td class="s\d+" data-r="37" data-c="3">)[^<]*(<\/td>)/, '$1$2');
-      if (S.hideValue && /^ปพ\.6 /.test(name)) out.html = out.html   // แถว 41: ซ่อนข้อความและเส้นกรอบเฉพาะช่องค่านิยม (ช่องลายเซ็นฝั่งขวาคงไว้)
-        .replace(/(<td class="s\d+" data-r="41" data-c="1" colspan="3" style=")[^"]*(">)[^<]*(<\/td>)/, '$1border:none;border-left:var(--bw,1px) solid #000$2$3')
-        .replace(/(<td class="s\d+" data-r="41" data-c="4")>[^<]*(<\/td>)/, '$1 style="border:none">$2')
-        .replace(/(<td class="s\d+" data-r="40" data-c="4")>/, '$1 style="border-bottom:var(--bw,1px) solid #000">');
+      if (/^ปพ\.6 /.test(name)) out.html = p6Hide(out.html);
       if (/^(บิดามารดา)/.test(name)) out.html = out.html.replace(/(<table class="xl[^"]*"[^>]*style="width:)([\d.]+)px/, (mm, x, w) => x + (parseFloat(w) * 1.3).toFixed(0) + 'px');   // ตัวอักษร 16pt กว้างกว่าแบบฟอร์มเดิม: ขยายตารางให้คอลัมน์ไม่ตัดข้อความ (แล้วย่อพอดีหน้า A4)
       if (k > 1.02 && !one && !guard) out.html = out.html.replace(/(<tr data-r=")(\d+)(" style="height:)([\d.]+)px/g, (mm, x, rr, y, h) => x + rr + y + (+rr === fixedRow ? h : (parseFloat(h) * k).toFixed(1)) + 'px');
       return { html: out.html, zoom, land, m, fitW: one || guard, nomin: name === 'บิดามารดา' || /^ปพ\.6 /.test(name), fs: /^ปพ\.6 /.test(name) ? 0.7 : 1, hc: !!pr.hc || tw * zoom < availW * 0.9 && false };
@@ -657,14 +670,13 @@
       bar = $('#pv-bar');
     }
     const y = opts._y !== undefined ? opts._y : window.scrollY;
-    const close = () => { document.body.classList.remove('previewing', 'printing'); root.innerHTML = ''; document.removeEventListener('keydown', onKey); showPreview._off = null; window.scrollTo(0, y); };
+    const close = () => { document.body.classList.remove('previewing', 'printing'); root.innerHTML = ''; document.removeEventListener('keydown', onKey); showPreview._off = null; window.scrollTo(0, y); if (opts.rebuild && window.PPUI) PPUI.refresh(); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     showPreview._off = () => document.removeEventListener('keydown', onKey);
     $$('.pv-p6', bar).forEach(x => x.remove());
     if (opts.rebuild) {   // ปพ.6: ปุ่มแสดง/ซ่อน ชื่อชุมนุม และ ค่านิยม 12 ประการ
-      const mk = (txt, on, fn) => { const b = document.createElement('button'); b.className = 'btn pv-p6'; b.textContent = txt; b.onclick = () => { fn(!on); showPreview(opts.rebuild(), { ...opts, _y: y }); }; return b; };
-      const act = $('.pv-act', bar);
-      act.before(mk(S.hideClub ? 'แสดงชื่อชุมนุม' : 'ซ่อนชื่อชุมนุม', S.hideClub, (v) => LS.set('pp_hideclub', (S.hideClub = v) ? '1' : '0')), mk(S.hideValue ? 'แสดงค่านิยม 12 ประการ' : 'ซ่อนค่านิยม 12 ประการ', S.hideValue, (v) => LS.set('pp_hidevalue', (S.hideValue = v) ? '1' : '0')));
+      const mk = (h) => { const b = document.createElement('button'); b.className = 'btn pv-p6'; b.textContent = (S[h[0]] ? 'แสดง' : 'ซ่อน') + h[2]; b.onclick = () => { toggleHide(h[0]); showPreview(opts.rebuild(), { ...opts, _y: y }); }; return b; };
+      $('.pv-act', bar).before(...P6_HIDE.map(mk));
     }
     $('#pv-n').textContent = blocks.length + ' หน้า';
     $('#pv-close').onclick = close;
@@ -715,6 +727,6 @@
   document.addEventListener('DOMContentLoaded', boot);
   window.PPApp = {
     S, CFG, toast, modal, roomLabel, openSheet, closeDoc, pagesFor, roster, setCell, markDirty, save, sheetGroups, subjName,
-    setHideValue(v) { S.hideValue = !!v; LS.set('pp_hidevalue', v ? '1' : '0'); }, setHideClub(v) { S.hideClub = !!v; LS.set('pp_hideclub', v ? '1' : '0'); }, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
+    P6_HIDE, toggleHide, printSheets, showPreview, printAllStudents, exportBackup, pickBackup, parseInput, canEdit, openGrade, manageRooms, editItems, renameItem, pickLogo: () => $('#logo-file').click(), removeLogo, issueTargets,
   };
 })();

@@ -222,8 +222,7 @@
       case 'attprint': A().showPreview(attPages(U.attMonth)); break;
       case 'attprintall': A().showPreview(attPages('all')); break;
       case 'addrows': set({ [b.dataset.key]: (U[b.dataset.key] || 0) + 5 }); break;
-      case 'p6value': A().setHideValue(!A().S.hideValue); refresh(); break;
-      case 'p6club': A().setHideClub(!A().S.hideClub); refresh(); break;
+      case 'p6hide': A().toggleHide(k); refresh(); break;
       case 'p6step': { const n = nStudents(); if (n) set({ p6no: ((U.p6no - 1 + (+k) + n) % n) + 1 }); break; }
       case 'p6print': printStudent(); break;
       case 'p6all': A().printAllStudents(p6Sheet()); break;
@@ -1453,11 +1452,11 @@
     const act = [35, 36, 37, 38].map(r => `<div class="row sp"><span>${esc(txt(sh, r, 2))}${r === 37 && txt(sh, r, 3) && !A().S.hideClub ? ' (' + esc(txt(sh, r, 3)) + ')' : ''}</span>${chip(get(sh, r, 4))}</div>`).join('');
     const ass = [[39, groupName('trait', 0)], [40, groupName('trait', 1)], [41, groupName('value', 0)], [42, groupName('value', 1)]].filter(([r]) => !(r === 41 && A().S.hideValue)).map(([r, t]) => `<div class="row sp"><span>${t}</span>${chip(get(sh, r, 4))}</div>`).join('');
     return head + pick + `<div class="card" style="margin-top:12px"><div class="rhead"><div><h3>${esc(stuName(U.p6no - 1))}</h3><span class="hint">เลขที่ ${U.p6no} · รหัส ${esc(txt(ST, 3 + U.p6no - 1, 6))} · ${esc(txt(SUBJ, 2, 2))}</span></div>
-        <div class="row"><button class="btn" data-act="doc" data-name="${esc(sh)}">ดูเอกสาร</button><button class="btn primary" data-act="p6print">พิมพ์คนนี้</button><button class="btn" data-act="p6all">พิมพ์ทั้งห้อง</button><button class="btn" data-act="p6club" aria-pressed="${A().S.hideClub ? 'true' : 'false'}" title="แสดง/ซ่อนชื่อชุมนุมในหน้าแสดงผลและหน้าพิมพ์ ปพ.6">${A().S.hideClub ? 'แสดงชื่อชุมนุม' : 'ซ่อนชื่อชุมนุม'}</button><button class="btn" data-act="p6value" aria-pressed="${A().S.hideValue ? 'true' : 'false'}" title="แสดง/ซ่อน ผลการประเมินค่านิยมหลัก 12 ประการ ในหน้าแสดงผลและหน้าพิมพ์ ปพ.6">${A().S.hideValue ? 'แสดงค่านิยม 12 ประการ' : 'ซ่อนค่านิยม 12 ประการ'}</button></div></div>
+        <div class="row"><button class="btn" data-act="doc" data-name="${esc(sh)}">ดูเอกสาร</button><button class="btn primary" data-act="p6print">พิมพ์คนนี้</button><button class="btn" data-act="p6all">พิมพ์ทั้งห้อง</button>${A().P6_HIDE.map(([prop, , nm]) => `<button class="btn" data-act="p6hide" data-k="${prop}" aria-pressed="${A().S[prop]}" title="แสดง/ซ่อน ${nm} ในหน้าแสดงผลและหน้าพิมพ์ ปพ.6">${A().S[prop] ? 'แสดง' : 'ซ่อน'}${nm}</button>`).join('')}</div></div>
         <div class="row" style="margin-top:8px"><span class="hint">เล่ม ปพ.6 (รายงานประจำตัวนักเรียน ฉบับเต็ม):</span><button class="btn" data-act="p6book">พิมพ์เล่มคนนี้</button><button class="btn" data-act="p6bookall">พิมพ์เล่มทั้งห้อง</button></div></div>
       <div class="tw p5tw"><table class="t p5t"><thead><tr><th>รหัส</th><th class="stk">รายวิชา</th><th>เวลาเรียน</th><th>คะแนนเต็ม</th><th>เฉลี่ยชั้น</th><th>คะแนนที่ได้</th><th>ร้อยละ</th><th>ระดับ</th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="hint">ยังไม่มีรายวิชา</td></tr>'}</tbody>
         <tfoot><tr><td colspan="3" class="stk">รวม · ร้อยละ ${esc(fmt2(get(sh, 30, 4)))}</td><td class="num">${esc(fmt2(get(sh, 29, 5)))}</td><td class="num">${esc(fmt2(get(sh, 29, 6)))}</td><td class="num">${esc(fmt2(get(sh, 29, 7)))}</td><td class="num">${esc(fmt2(get(sh, 29, 8)))}</td><td></td></tr></tfoot></table></div>
-      <div class="grid2" style="margin-top:12px"><div class="card"><h3>ผลการเรียนเฉลี่ย</h3><div class="row sp"><span>ผลการเรียนเฉลี่ย</span><b>${esc(fmt2(get(sh, 32, 4)))}</b></div><div class="row sp"><span>คะแนนรวมได้ลำดับที่</span><b>${esc(fmt2(get(sh, 31, 4)))}</b></div><div class="row sp"><span>ผลการเรียนเฉลี่ยได้ลำดับที่</span><b>${esc(fmt2(get(sh, 33, 4)))}</b></div></div>
+      <div class="grid2" style="margin-top:12px"><div class="card"><h3>ผลการเรียนเฉลี่ย</h3><div class="row sp"><span>ผลการเรียนเฉลี่ย</span><b>${esc(fmt2(get(sh, 32, 4)))}</b></div>${A().S.hideRankS ? '' : `<div class="row sp"><span>คะแนนรวมได้ลำดับที่</span><b>${esc(fmt2(get(sh, 31, 4)))}</b></div>`}${A().S.hideRankG ? '' : `<div class="row sp"><span>ผลการเรียนเฉลี่ยได้ลำดับที่</span><b>${esc(fmt2(get(sh, 33, 4)))}</b></div>`}</div>
         <div class="card"><h3>กิจกรรมพัฒนาผู้เรียน</h3>${act}</div><div class="card full"><h3>ผลการประเมิน</h3>${ass}</div></div>${p6AttBlock(U.p6no - 1)}`;
   }
 
