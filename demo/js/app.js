@@ -632,17 +632,23 @@
   function printAllStudents(name) {
     const list = roster(); if (!list.length) { toast('ยังไม่มีรายชื่อนักเรียน', 'warn'); return; }
     const pos = NO_CELL(name), prev = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
-    const blocks = [];
-    try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...docPages(name)); } }
-    finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, prev); }
-    showPreview(blocks);
+    const rb = () => {
+      const blocks = [], keep = S.wb.get(S.wb.sheet(name), pos.r, pos.c);
+      try { for (const s of list) { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, s.n); blocks.push(...docPages(name)); } }
+      finally { S.wb.setValue(name, P.numToCol(pos.c) + pos.r, keep); }
+      return blocks;
+    };
+    showPreview(rb(), isP6(name) ? { rebuild: rb } : {});
   }
   // หน้าพิมพ์ของชีท: ชีทที่มีหน้าเสริม (เช่น เวลาเรียนรายวิชาต่อท้าย ปพ.5/ปพ.6) ให้ ui.js ประกอบให้
   const docPages = (n) => (window.PPUI && PPUI.customPages && PPUI.customPages(n)) || pagesFor(n);
-  function printSheets(names) { showPreview(names.flatMap(docPages)); }
+  function printSheets(names) { const rb = () => names.flatMap(docPages); showPreview(rb(), names.every(isP6) ? { rebuild: rb } : {}); }
 
-  function showPreview(blocks) {
+  // opts.rebuild: สร้างหน้าใหม่ (ใช้กับปุ่มแสดง/ซ่อนในแถบ ตัวอย่างก่อนพิมพ์ ของ ปพ.6)
+  function showPreview(blocks, opts) {
     if (!blocks.length) return;
+    opts = opts || {};
+    if (showPreview._off) showPreview._off();
     const root = $('#print-root');
     root.innerHTML = blocks.map(b => `<section class="pp-page ${b.land ? 'land' : 'port'}"${b.fitW ? ' data-fitw="1"' : ''} style="padding:${b.m[2]}in ${b.m[1]}in ${b.m[3]}in ${b.m[0]}in"><div class="pp-zoom" style="zoom:${b.zoom};--bw:${1 / b.zoom}px${b.fs && b.fs !== 1 ? ';--fs:' + b.fs : ''}${b.nomin ? ';--minfs:0px' : ''}${b.hc ? ';margin:0 auto;width:max-content' : ''}">${b.html}</div>${wmLayer(14)}</section>`).join('');
     let bar = $('#pv-bar');
@@ -650,9 +656,16 @@
       document.body.insertAdjacentHTML('beforeend', `<div id="pv-bar" role="toolbar" aria-label="ตัวอย่างก่อนพิมพ์"><b>ตัวอย่างก่อนพิมพ์</b><span class="hint" id="pv-n"></span><span class="pv-act"><button class="btn primary" id="pv-print">พิมพ์</button><button class="btn" id="pv-close">ปิด</button></span></div>`);
       bar = $('#pv-bar');
     }
-    const y = window.scrollY;
-    const close = () => { document.body.classList.remove('previewing', 'printing'); root.innerHTML = ''; document.removeEventListener('keydown', onKey); window.scrollTo(0, y); };
+    const y = opts._y !== undefined ? opts._y : window.scrollY;
+    const close = () => { document.body.classList.remove('previewing', 'printing'); root.innerHTML = ''; document.removeEventListener('keydown', onKey); showPreview._off = null; window.scrollTo(0, y); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
+    showPreview._off = () => document.removeEventListener('keydown', onKey);
+    $$('.pv-p6', bar).forEach(x => x.remove());
+    if (opts.rebuild) {   // ปพ.6: ปุ่มแสดง/ซ่อน ชื่อชุมนุม และ ค่านิยม 12 ประการ
+      const mk = (txt, on, fn) => { const b = document.createElement('button'); b.className = 'btn pv-p6'; b.textContent = txt; b.onclick = () => { fn(!on); showPreview(opts.rebuild(), { ...opts, _y: y }); }; return b; };
+      const act = $('.pv-act', bar);
+      act.before(mk(S.hideClub ? 'แสดงชื่อชุมนุม' : 'ซ่อนชื่อชุมนุม', S.hideClub, (v) => LS.set('pp_hideclub', (S.hideClub = v) ? '1' : '0')), mk(S.hideValue ? 'แสดงค่านิยม 12 ประการ' : 'ซ่อนค่านิยม 12 ประการ', S.hideValue, (v) => LS.set('pp_hidevalue', (S.hideValue = v) ? '1' : '0')));
+    }
     $('#pv-n').textContent = blocks.length + ' หน้า';
     $('#pv-close').onclick = close;
     $('#pv-print').onclick = async () => {
