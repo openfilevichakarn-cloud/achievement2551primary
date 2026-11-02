@@ -183,7 +183,7 @@
   }
   // ชื่อโรงเรียนมาจากเซิร์ฟเวอร์ตามรหัสสิทธิ์ แก้ไม่ได้
   function lockSchoolName() {
-    S.wb.setValue(INFO, 'B3', S.school.name);
+    S.wb.setValue(INFO, 'B3', String(S.school.name || '').replace(/^\s*โรงเรียน\s*/, '').trim() || S.school.name);   // แบบฟอร์มทุกใบพิมพ์ "โรงเรียน" นำหน้าเองอยู่แล้ว ตัดคำซ้ำออก
     S.view.locked.add(INFO + '!B3');
     delete (S.userEdits[INFO] || {}).B3;
   }
